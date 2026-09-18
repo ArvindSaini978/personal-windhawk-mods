@@ -19,7 +19,12 @@ An extended and enhanced modification of the Windows 11 File Explorer command ba
 
 Designed for Windows 11 with the WinAppSDK (WinUI 3) File Explorer.
 
+### Preview
+
 ![Advanced Explorer Command Bar Preview](https://raw.githubusercontent.com/ArvindSaini978/personal-windhawk-mods/master/advanced-explorer-command-bar-preview.png)
+
+>
+
 ---
 
 ### What This Mod Does
