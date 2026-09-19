@@ -1,420 +1,559 @@
 // ==WindhawkMod==
-// @id              explorer-custom-shortcuts
-// @name            Explorer Custom Shortcuts
-// @description     Adds app-style keyboard shortcuts to File Explorer with dynamic tokens, selection modes, and internal commands.
-// @version         1.0
-// @author          ArvindSaini978
-// @github          https://github.com/ArvindSaini978
+// @id              advanced-explorer-command-bar
+// @name            Advanced Explorer Command Bar
+// @description     Adds custom buttons to the File Explorer command bar (right-side/secondary bar support) with independent label/tooltip text, internal command triggers, and global multi-file %sel% batch execution.
+// @version         1.1.1
+// @author          ArvindSaini978 (Modified; Original by DanRotaru)
+// @github          https://github.com/arvindsaini978
+// @homepage        https://github.com/arvindsaini978
 // @include         explorer.exe
-// @license         MIT
-// @compilerOptions -lole32 -loleaut32 -lshlwapi
 // @architecture    x86-64
+// @compilerOptions -ladvapi32 -lgdi32 -lole32 -loleaut32 -lruntimeobject -lshell32 -lshlwapi -luuid
+// @license         MIT
 // ==/WindhawkMod==
-
 // ==WindhawkModReadme==
 /*
-# Explorer Custom Shortcuts
+# Advanced Explorer Command Bar
 
-Adds customizable, app-style keyboard shortcuts to Windows File Explorer with parameter substitution, built-in shell commands, and custom token expansion.
+An extended and enhanced modification of the Windows 11 File Explorer command bar. Originally created by **DanRotaru**, this version has been expanded and modified by **ArvindSaini978**.
 
-> **Input Protection:** All custom shortcuts are automatically suppressed while renaming files, typing into the Address/Breadcrumb bar, typing into the Search box, or while focus is actively inside dialogs (such as Properties, Delete/Replace confirmations). When focus returns to the main File Explorer window, shortcuts resume immediately.
+Designed for Windows 11 with the WinAppSDK (WinUI 3) File Explorer.
 
----
+### Preview
 
-### Internal Explorer Commands
+![Advanced Explorer Command Bar Preview](https://raw.githubusercontent.com/ArvindSaini978/personal-windhawk-mods/master/advanced-explorer-command-bar-preview.png)
 
-Instead of specifying an executable path, set **Executable Path** to one of the following `internal:` keywords:
-
-* **`internal:newTextFile`**: Creates a `New Text Document.txt` in the active folder and automatically selects/focuses it without UI freezes.
-* **`internal:newFolder`**: Creates a `New Folder` in the active folder and enters inline rename mode immediately.
-* **`internal:openRecycleBin`**: Navigates to the Recycle Bin in the current active tab.
-* **`internal:emptyRecycleBin`**: Empties the Recycle Bin with native Windows confirmation dialog and progress display.
-* **`internal:toggleHiddenFiles`**: Toggles visibility of hidden files and folders with immediate view refresh. *(Note: Changes persistent system-wide Windows Explorer settings).*
-* **`internal:toggleFileExtensions`**: Toggles file name extensions on or off with immediate view refresh. *(Note: Changes persistent system-wide Windows Explorer settings).*
-* **`internal:folderOptions`**: Opens the native File Explorer Folder Options dialog.
-
-> **Persistent Settings Notice:** `internal:toggleHiddenFiles` and `internal:toggleFileExtensions` flip the native Windows Explorer shell settings directly (`SHGetSetSettings`). These changes affect all File Explorer surfaces globally and persist even if this mod is disabled or uninstalled.
+>
 
 ---
 
-### Available Tokens for Arguments & Examples
+### What This Mod Does
 
-* **`%f`** — All selected items as space-separated quoted paths (`"C:\a.txt" "C:\b.png"`).
-* **`%files`** — Selected regular files only (skips selected folders).
-* **`%folders`** — Selected folders only (skips selected regular files).
-* **`%1`** — Quoted path of the first selected file or directory (`"C:\a.txt"`).
-* **`%n`** — File or folder names only without absolute directory paths (`"a.txt"`).
-* **`%c`** — Total number of selected items as an integer (`3`). In loop modes, this resolves to `1`.
-* **`%ext`** — File extension of the first selected item (`.png`).
-* **`%s`** — Space-separated paths with **smart-quoting** (automatically adds double-quotes only to paths containing spaces).
-* **`%d`** — Active directory open in the current tab (`C:\Users\Name\Documents`). Virtual folders like *This PC* or *Recycle Bin* resolve to an empty string.
-* **`%d_smart`** — Selected folder if one is highlighted; otherwise falls back to the current active directory.
-* **`%p`** — Parent directory path of the active tab.
-
-> **Shell Interpreter Security Notice:** Path tokens are quoted according to standard Windows CRT command-line (`argv`) rules. If arguments are passed to script interpreters (e.g. `cmd.exe /c` or `powershell.exe -Command`), parameters may be re-parsed by that interpreter. Use native binary arguments or pass paths directly to target programs.
+* **Right-Side Secondary Bar Placement:** Custom action buttons dock onto the right-side command bar (`FileExplorerSecondaryCommandBar`) alongside built-in controls like the Details and Preview Pane toggles, keeping the left primary bar uncluttered.
+* **Visible Text Labels with Tooltip Independence:** Configure visible button labels (`labelText`) positioned beside the icons matching Windows 11 Fluent UI style, while keeping a separate hover description (`name`) as the tooltip. Individual buttons can also collapse to icon-only.
+* **Multi-File Batch Selection (`%sel%`):** Unlike standard mods limited to single items, this mod queries Explorer's selection set directly on the UI STA thread. `%sel%` and `"%sel%"` expand to enumerate all selected items as space-separated quoted paths (e.g., `"C:\File1.txt" "C:\File2.txt"`), allowing bulk processing in external CLI tools, scripts, and converters.
+* **Internal Shell Commands:** Execute native actions instantly without requiring external scripts or binaries:
+  * `internal:TogglePreview` — Toggles the File Explorer Preview Pane.
+  * `internal:ToggleDetails` — Toggles the File Explorer Details Pane.
+  * `internal:FolderOptions` — Opens the classic Windows Folder Options dialog directly.
 
 ---
 
-### Launch Modes & Use Cases
+## Features
 
-* **`batch`** (Default): Executes the application exactly once and passes the resolved command-line arguments.
-  * *Use Case:* Code editors (opening a directory), Media players (queuing files), or bulk tools like PowerRename.
-* **`loop_files`**: Executes the application once per selected file.
-  * *Use Case:* Single-file image editors, batch converters, or per-file processing scripts.
-* **`loop_folders`**: Executes the application once per selected folder.
-  * *Use Case:* Batch archiving folders individually or folder-specific terminal operations.
-
----
-
-### Preset Ideas & External App Examples
-
-You can add your own shortcuts using these templates in the settings:
-
-* **Open Windows Terminal Here**
-  * Path: `wt.exe` | Args: `-d "%d"` | Mode: `batch`
-* **Open with Notepad**
-  * Path: `notepad.exe` | Args: `%1` | Mode: `loop_files`
-* **PowerToys PowerRename** (Bulk rename selected items)
-  * Path: `C:\Program Files\PowerToys\WinUI3Apps\PowerToys.PowerRename.exe` | Args: `%f` | Mode: `batch`
-* **Search with Everything** (Search current active directory)
-  * Path: `C:\Program Files\Everything\Everything.exe` | Args: `"%d"` | Mode: `batch`
-* **Open in VS Code**
-  * Path: `code` | Args: `"%d_smart"` | Mode: `batch`
-* **Queue in VLC Media Player**
-  * Path: `vlc.exe` | Args: `%f` | Mode: `batch`
+- **Custom buttons & menus** — Add single-click buttons or multi-tier dropdown menus (up to three levels deep).
+- **Secondary / Right-side docking** — Keeps primary actions clean by placing user tools on the secondary command bar.
+- **Batch `%sel%` & `%path%` placeholders** — `%path%` resolves to the active folder; `%sel%` expands to every highlighted item.
+- **Internal commands** — One-click triggers for Preview Pane, Details Pane, and Folder Options.
+- **Flexible icons** — Segoe Fluent Icon glyphs (e.g., `E756`), paths to `.exe`/`.dll`/`.ico` files, or Store App AUMIDs (`shell:AppsFolder\...`).
+- **Context menu integration** — Append a button that triggers the full native Windows shell context menu or Nilesoft Shell.
+- **PowerToys New+ integration** — Replace Explorer's New button with a custom New+ dropdown loaded with user templates.
+- **Hide built-in elements** — Hide default buttons (Cut, Copy, Delete, View, Sort, etc.) and separators individually.
 
 ---
 
-### Comparison with Existing Mods
+## Internal Commands Reference
 
-While related mods exist in the Windhawk repository, **Explorer Custom Shortcuts** provides a distinct, keyboard-first workflow engine:
-* **`explorer-command-bar`**: Adds visual custom toolbar buttons exclusively to the modern Windows 11 command bar. In contrast, this mod provides a pure, zero-UI, low-latency keyboard shortcut accelerator engine operating across both classic and tabbed Explorer windows. It introduces specialized batch looping capabilities (`loop_files`, `loop_folders`), rich token expansions (`%n`, `%ext`, `%c`, `%files`, `%folders`), and context-aware suppression during inline edits.
-* **`keyboard-shortcut-actions`**: A general-purpose desktop/window hotkey dispatcher without Explorer context awareness. This mod parses active Explorer tab navigation, item selections, and folder paths directly into CLI parameters.
-* **`toggle-hidden-files` / `explorer-ctrln-newfile` / `explorer-ctrlq-new-folder`**: Single-purpose mods; here, internal shell actions are optional presets within a single hotkey table, allowing users to bind them to whatever key combinations they prefer without installing multiple separate hooks.
+Enter any of these directly in the **Command** field:
 
-### Attribution & Acknowledgments
-Process execution concepts (`ResolveCommandPath`, `ExecuteApp`) and shell window inspection adapt techniques from `explorer-command-bar` (DanRotaru, MIT). Settings toggling follows patterns established in `toggle-hidden-files` (Asteski).
+| Command | Action Performed |
+| :--- | :--- |
+| `internal:TogglePreview` | Toggles the Preview Pane (sends `Alt + P`) |
+| `internal:ToggleDetails` | Toggles the Details Pane (sends `Alt + Shift + P`) |
+| `internal:FolderOptions` | Launches the native Windows Folder Options window (`control.exe folders`) |
+
+---
+
+## Command Parameters Reference
+
+| Placeholder | Expands To |
+| :--- | :--- |
+| `"%path%"` | Full directory path of the active tab |
+| `"%sel%"` | Enclosed, space-separated list of all selected files/folders |
+
+If multiple files are selected, `notepad.exe "%sel%"` expands to:
+`notepad.exe "C:\Folder\Document1.txt" "C:\Folder\Document2.txt"`
+
+---
+
+## Credits & Attribution
+
+* **Original Mod & Engine:** Created by [DanRotaru](https://github.com/DanRotaru) ([Explorer Command Bar](https://windhawk.net/mods/explorer-command-bar)).
+* **Enhancements & Maintenance:** Modified and maintained by [ArvindSaini978](https://github.com/arvindsaini978).
 */
 // ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
 /*
-- shortcuts:
-  - - name: "Open Terminal Here"
-      $name: "Action Name"
-    - enabled: true
-      $name: "Enabled"
-    - key: "T"
-      $name: "Key (A-Z, 0-9, F1-F12, Delete, Space, Enter, Tab)"
-    - ctrl: true
-      $name: "Require Ctrl"
-    - shift: false
-      $name: "Require Shift"
-    - alt: true
-      $name: "Require Alt"
-    - path: "wt.exe"
-      $name: "Executable Path or Internal Command"
-      $description: "Executable path, alias, or internal command. Note: internal:toggleHiddenFiles and internal:toggleFileExtensions flip persistent system-wide Windows settings."
-    - args: "-d \"%d\""
-      $name: "Arguments / Tokens"
-      $description: "Supported tokens: %f, %files, %folders, %1, %n, %c, %ext, %s, %d, %d_smart, %p."
-    - mode: "batch"
-      $name: "Launch Mode"
+- items:
+  - - type: button
+      $name: Main Item Type
       $options:
-        - batch: "batch: Run once with all selected items"
-        - loop_files: "loop_files: Run once per selected file"
-        - loop_folders: "loop_folders: Run once per selected folder"
-  - - name: "Open with Notepad"
-    - enabled: true
-    - key: "N"
-    - ctrl: false
-    - shift: false
-    - alt: true
-    - path: "notepad.exe"
-    - args: "%1"
-    - mode: "loop_files"
-  - - name: "Toggle Hidden Files"
-    - enabled: false
-    - key: "H"
-    - ctrl: true
-    - shift: false
-    - alt: false
-    - path: "internal:toggleHiddenFiles"
-    - args: ""
-    - mode: "batch"
-  - - name: "Open Recycle Bin"
-    - enabled: true
-    - key: "B"
-    - ctrl: true
-    - shift: true
-    - alt: false
-    - path: "internal:openRecycleBin"
-    - args: ""
-    - mode: "batch"
-  $name: "Custom Shortcuts"
-  $description: "List of customizable shortcuts. Supported keys: A-Z, 0-9, F1-F12, Delete/Del, Space, Enter, and Tab. Modifiers (Ctrl, Shift, or Alt) are required for all keys except F1-F12."
+      - button: Single button
+      - menu: Dropdown menu
+    - name: Open in Terminal
+      $name: Name
+      $description: Shown as the button tooltip.
+    - command: wt.exe
+      $name: Command
+      $description: >-
+        The executable to run, or an internal command (internal:TogglePreview, internal:ToggleDetails, internal:FolderOptions).
+    - parameters: -d "%path%"
+      $name: Parameters
+      $description: >-
+        Command line parameters. %path% is replaced with current directory; %sel% is expanded to all highlighted file/folder paths.
+    - iconGlyph: ""
+      $name: Icon glyph or icon path
+      $description: Fluent icon glyph (e.g. E756), file path (.ico/.dll/.exe), or empty for executable icon.
+    - hideIcon: false
+      $name: Hide icon
+      $description: Don't show an icon for this item.
+    - showLabel: false
+      $name: Show label
+      $description: Show text label next to the icon.
+    - labelText: ""
+      $name: Custom Label Text
+      $description: Text displayed next to the icon. If empty, the Name field is used.
+    - separatorAfter: false
+      $name: Vertical separator after
+      $description: Show a vertical separator line after this button.
+    - subItems:
+      - - type: button
+          $name: Sub-item Type
+          $options:
+          - button: Single button
+          - menu: Submenu
+        - name: ""
+          $name: Name
+        - command: ""
+          $name: Command
+        - parameters: ""
+          $name: Parameters
+        - iconGlyph: ""
+          $name: Icon glyph or icon path
+        - hideIcon: false
+          $name: Hide icon
+        - separatorAfter: false
+          $name: Vertical separator after
+        - subItems:
+          - - name: ""
+              $name: Name
+            - command: ""
+              $name: Command
+            - parameters: ""
+              $name: Parameters
+            - iconGlyph: ""
+              $name: Icon glyph or icon path
+            - hideIcon: false
+              $name: Hide icon
+            - separatorAfter: false
+              $name: Vertical separator after
+          $name: Nested items
+          $description: Items inside this nested submenu.
+      $name: Menu items
+      $description: Items shown in the dropdown menu.
+  $name: Toolbar items
+  $description: Custom buttons and dropdown menus added to the command bar.
+- hideDefaultButtons:
+  - new: false
+    $name: New
+  - separatorAfterNew: false
+    $name: Vertical separator after New
+  - cut: false
+    $name: Cut
+  - copy: false
+    $name: Copy
+  - paste: false
+    $name: Paste
+  - rename: false
+    $name: Rename
+  - share: false
+    $name: Share
+  - delete: false
+    $name: Delete
+  - separatorAfterDelete: false
+    $name: Vertical separator after Delete
+  - sort: false
+    $name: Sort
+  - view: false
+    $name: View
+  - separatorAfterView: false
+    $name: Vertical separator after View
+  - moreOptions: false
+    $name: See more (the three dots menu)
+  - setAsBackground: false
+    $name: Set as background
+  - rotateLeft: false
+    $name: Rotate left
+  - rotateRight: false
+    $name: Rotate right
+  - extractAll: false
+    $name: Extract all
+  - details: false
+    $name: Details pane toggle
+  $name: Hide default toolbar buttons
+- newPlus:
+  - enabled: false
+    $name: Replace New with New+
+  - showLabel: true
+    $name: Show the button label
+  - buttonLabel: New
+    $name: Button label
+  - buttonIcon: ""
+    $name: Button icon glyph or icon path
+  - templateFolder: ""
+    $name: Templates folder
+  - showIcons: true
+    $name: Show template icons
+  - showTemplatesFolderItem: true
+    $name: Add an "Open templates folder" entry
+  - keepOriginalNewButton: false
+    $name: Keep Explorer's New button
+  $name: Replace New to New+
+- contextMenuItem:
+  - enabled: false
+    $name: Add the context menu item
+  - useNilesoftShell: false
+    $name: Let File Explorer show the menu (for Nilesoft Shell)
+  - showLabel: false
+    $name: Show the item label
+  - buttonLabel: Context menu
+    $name: Item label
+  - buttonIcon: E8FD
+    $name: Item icon glyph or icon path
+  $name: Context menu item
+- openMenuOnHover: false
+  $name: Open menus on hover
+- menuHoverDelay: 400
+  $name: Hover delay (milliseconds)
+- itemSpacing: -1
+  $name: Item spacing (pixels at 100% scaling)
 */
 // ==/WindhawkModSettings==
 
+
 #include <windows.h>
-#include <initguid.h>
-#include <shlobj.h>
-#include <exdisp.h>
-#include <shlguid.h>
-#include <shlwapi.h>
-#include <cwctype>
-#include <vector>
-#include <functional>
-#include <mutex>
-#include <shared_mutex>
-#include <string>
-#include <algorithm>
-#include <atomic>
-#include <shellapi.h>
-#include <memory>
 #include <windhawk_utils.h>
 
-struct CustomShortcut {
+#include <exdisp.h>
+#include <servprov.h>
+#include <shellapi.h>
+#include <shlobj.h>
+#include <shlwapi.h>
+#include <shobjidl.h>
+
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cwchar>
+#include <cwctype>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+std::atomic<bool> g_unloading;
+
+static constexpr CLSID kCLSID_ShellWindows = {
+    0x9ba05972, 0xf6a8, 0x11cf, {0xa4, 0x42, 0x00, 0xa0, 0xc9, 0x0a, 0x8f, 0x39}};
+
+static constexpr GUID kSID_STopLevelBrowser = {
+    0x4c96be40, 0x915c, 0x11cf, {0x99, 0xd3, 0x00, 0xaa, 0x00, 0x4a, 0xe8, 0x37}};
+
+struct ActionItem {
     std::wstring name;
-    bool enabled = true;
-    int vkCode = 0;
-    bool ctrl = false;
-    bool shift = false;
-    bool alt = false;
-    std::wstring path;
-    std::wstring argsPattern;
-    std::wstring launchMode;
+    std::wstring labelText;
+    std::wstring command;
+    std::wstring parameters;
+    std::wstring icon;
+    bool hideIcon = false;
+    bool showLabel = false;
+    bool isMenu = false;
+    bool separatorAfter = false;
+    std::vector<ActionItem> subItems;
 };
 
-static std::vector<CustomShortcut> g_shortcuts;
-static std::shared_mutex g_shortcutsMutex;
+struct DefaultButtonDef {
+    PCWSTR settingKey;
+    PCWSTR svgFileName;
+};
 
-static std::mutex g_threadsMutex;
-static std::vector<HANDLE> g_threads;
-static std::atomic<bool> g_unloading{false};
+constexpr DefaultButtonDef kDefaultButtons[] = {
+    {L"new", L"windows.newitem.svg"},
+    {L"cut", L"windows.cut.svg"},
+    {L"copy", L"windows.copy.svg"},
+    {L"paste", L"windows.paste.svg"},
+    {L"rename", L"windows.rename.svg"},
+    {L"share", L"windows.modernshare.svg"},
+    {L"delete", L"windows.ribbondelete.svg"},
+    {L"sort", L"sortby.svg"},
+    {L"view", L"view.svg"},
+    {L"setAsBackground", L"windows.setdesktopwallpaper.svg"},
+    {L"rotateLeft", L"windows.rotate270.svg"},
+    {L"rotateRight", L"windows.rotate90.svg"},
+    {L"extractAll", L"windows.compressedfile.extract.svg"},
+};
 
-std::wstring ExpandEnv(const std::wstring& input) {
-    DWORD required = ExpandEnvironmentStringsW(input.c_str(), nullptr, 0);
-    if (required > 0) {
-        std::vector<WCHAR> buf(required);
-        if (ExpandEnvironmentStringsW(input.c_str(), buf.data(), required) > 0) {
-            return buf.data();
-        }
+constexpr int kDefaultButtonCount = ARRAYSIZE(kDefaultButtons);
+constexpr int kNewButtonIndex = 0;
+constexpr int kDeleteButtonIndex = 6;
+constexpr int kSortButtonIndex = 7;
+constexpr int kViewButtonIndex = 8;
+
+struct NewPlusSettings {
+    bool enabled = false;
+    bool showLabel = true;
+    std::wstring buttonLabel = L"New";
+    std::wstring buttonIcon;
+    std::wstring templateFolder;
+    bool showIcons = true;
+    bool showTemplatesFolderItem = true;
+    bool keepOriginalNewButton = false;
+};
+
+struct ContextMenuItemSettings {
+    bool enabled = false;
+    bool useNilesoftShell = false;
+    bool showLabel = false;
+    std::wstring buttonLabel = L"Context menu";
+    std::wstring buttonIcon;
+};
+
+struct {
+    std::mutex mutex;
+    bool openMenuOnHover = false;
+    int menuHoverDelay = 400;
+    bool hideDefaultButtons[kDefaultButtonCount] = {};
+    bool hideSeparatorAfterButton[kDefaultButtonCount] = {};
+    bool hideMoreButton = false;
+    bool hideDetailsButton = false;
+    int itemSpacing = -1;
+    std::vector<ActionItem> items;
+    NewPlusSettings newPlus;
+    ContextMenuItemSettings contextMenuItem;
+} g_settings;
+
+#pragma region winrt_hpp
+#include <Unknwn.h>
+#undef GetCurrentTime
+#include <winrt/Microsoft.UI.Content.h>
+#include <winrt/Microsoft.UI.Dispatching.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
+#include <winrt/Microsoft.UI.Xaml.Controls.h>
+#include <winrt/Microsoft.UI.Xaml.Documents.h>
+#include <winrt/Microsoft.UI.Xaml.Input.h>
+#include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
+#include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Microsoft.UI.Xaml.h>
+#include <winrt/Microsoft.UI.h>
+#include <winrt/Windows.Data.Json.h>
+#include <winrt/Windows.Foundation.Collections.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Storage.Streams.h>
+#include <winrt/base.h>
+
+namespace wdj = winrt::Windows::Data::Json;
+namespace wf = winrt::Windows::Foundation;
+namespace wfc = winrt::Windows::Foundation::Collections;
+namespace mux = winrt::Microsoft::UI::Xaml;
+namespace muxc = winrt::Microsoft::UI::Xaml::Controls;
+namespace muxd = winrt::Microsoft::UI::Xaml::Documents;
+namespace muxm = winrt::Microsoft::UI::Xaml::Media;
+#pragma endregion
+
+constexpr PCWSTR kButtonNamePrefix = L"WindhawkActionButton";
+constexpr PCWSTR kNewPlusButtonName = L"WindhawkNewPlusButton";
+constexpr PCWSTR kContextMenuButtonName = L"WindhawkContextMenuButton";
+
+struct CommandBarEntry {
+    winrt::weak_ref<muxc::CommandBar> commandBar;
+    winrt::event_token loadedToken{};
+    winrt::event_token vectorChangedToken{};
+};
+
+thread_local std::vector<CommandBarEntry> g_entries;
+thread_local bool g_threadScanned;
+
+struct TrackedRevoker {
+    winrt::weak_ref<wf::IInspectable> source;
+    std::function<void()> revoke;
+};
+
+thread_local std::vector<TrackedRevoker> g_revokers;
+constexpr size_t kRevokersPruneMin = 64;
+thread_local size_t g_revokersPruneAt = kRevokersPruneMin;
+
+template <typename T, typename Revoker>
+void TrackRevoker(T const& source, Revoker&& revoker) {
+    if (g_revokers.size() >= g_revokersPruneAt) {
+        std::erase_if(g_revokers, [](TrackedRevoker const& tracked) {
+            return !tracked.source.get();
+        });
+        g_revokersPruneAt = std::max(kRevokersPruneMin, g_revokers.size() * 2);
     }
-    return input;
+
+    auto held = std::make_shared<std::decay_t<Revoker>>(std::forward<Revoker>(revoker));
+    g_revokers.push_back({winrt::weak_ref<wf::IInspectable>{source}, [held]() { held->revoke(); }});
 }
 
-std::wstring ResolveCommandPath(const std::wstring& command) {
-    std::wstring expanded = ExpandEnv(command);
-    if (expanded.find(L'\\') != std::wstring::npos) {
-        return expanded;
+void RevokeHandlersForCurrentThread() {
+    std::vector<TrackedRevoker> taken;
+    taken.swap(g_revokers);
+    g_revokersPruneAt = kRevokersPruneMin;
+
+    for (auto const& tracked : taken) {
+        try {
+            tracked.revoke();
+        } catch (...) {
+        }
+    }
+}
+
+struct ManagedElement {
+    winrt::weak_ref<mux::UIElement> element;
+    bool hasOriginalVisibility = false;
+    mux::Visibility originalVisibility = mux::Visibility::Visible;
+    bool hasOriginalSpacing = false;
+    mux::Thickness originalMargin{};
+    double originalMinWidth = 0;
+    bool hasOriginalOverflow = false;
+    muxc::CommandBarOverflowButtonVisibility originalOverflow =
+        muxc::CommandBarOverflowButtonVisibility::Auto;
+    bool watched = false;
+    int64_t visibilityToken = 0;
+};
+
+thread_local std::vector<ManagedElement> g_managedElements;
+
+ManagedElement* FindManagedElement(mux::UIElement const& element) {
+    for (auto& entry : g_managedElements) {
+        if (entry.element.get() == element) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+ManagedElement& GetManagedElement(mux::UIElement const& element) {
+    for (auto it = g_managedElements.begin(); it != g_managedElements.end();) {
+        if (!it->element.get()) {
+            it = g_managedElements.erase(it);
+        } else {
+            ++it;
+        }
     }
 
+    if (auto* entry = FindManagedElement(element)) {
+        return *entry;
+    }
+
+    g_managedElements.push_back({winrt::make_weak(element)});
+    return g_managedElements.back();
+}
+
+std::wstring ExpandEnvVars(std::wstring const& str) {
+    if (str.empty()) return str;
+    WCHAR buffer[MAX_PATH * 2];
+    DWORD length = ExpandEnvironmentStringsW(str.c_str(), buffer, ARRAYSIZE(buffer));
+    if (length == 0 || length > ARRAYSIZE(buffer)) return str;
+    return buffer;
+}
+
+std::wstring ToLower(std::wstring str) {
+    for (auto& c : str) c = towlower(c);
+    return str;
+}
+
+std::wstring TrimQuotesAndSpaces(std::wstring str) {
+    size_t first = str.find_first_not_of(L" \t");
+    if (first == std::wstring::npos) return std::wstring();
+    size_t last = str.find_last_not_of(L" \t");
+    str = str.substr(first, last - first + 1);
+    if (str.size() >= 2 && str.front() == L'"' && str.back() == L'"') {
+        str = str.substr(1, str.size() - 2);
+    }
+    return str;
+}
+
+std::wstring JoinPath(std::wstring const& folder, std::wstring const& name) {
+    std::wstring result = folder;
+    if (!result.empty() && result.back() != L'\\' && result.back() != L'/') {
+        result += L'\\';
+    }
+    return result + name;
+}
+
+bool DirectoryExists(std::wstring const& path) {
+    DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+std::wstring ResolveCommandPath(std::wstring const& command) {
+    std::wstring expanded = ExpandEnvVars(command);
+    if (expanded.find(L'\\') != std::wstring::npos) return expanded;
+
     WCHAR resolved[MAX_PATH];
-    DWORD searchRes = SearchPathW(nullptr, expanded.c_str(), L".exe", ARRAYSIZE(resolved), resolved, nullptr);
-    if (searchRes > 0 && searchRes < ARRAYSIZE(resolved)) {
+    if (SearchPathW(nullptr, expanded.c_str(), L".exe", ARRAYSIZE(resolved), resolved, nullptr)) {
         return resolved;
     }
 
     std::wstring keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + expanded;
-    if (keyPath.size() < 4 || _wcsicmp(keyPath.c_str() + keyPath.size() - 4, L".exe") != 0) {
-        keyPath += L".exe";
-    }
+    if (!ToLower(expanded).ends_with(L".exe")) keyPath += L".exe";
 
     for (HKEY rootKey : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}) {
         WCHAR buffer[MAX_PATH];
         DWORD size = sizeof(buffer);
         if (RegGetValueW(rootKey, keyPath.c_str(), nullptr, RRF_RT_REG_SZ, nullptr, buffer, &size) == ERROR_SUCCESS && buffer[0]) {
-            std::wstring appPath = ExpandEnv(buffer);
+            std::wstring appPath = ExpandEnvVars(buffer);
             if (appPath.size() >= 2 && appPath.front() == L'"' && appPath.back() == L'"') {
                 appPath = appPath.substr(1, appPath.size() - 2);
             }
             return appPath;
         }
     }
+
     return expanded;
 }
 
-int ParseKey(std::wstring keyStr) {
-    keyStr.erase(keyStr.begin(), std::find_if(keyStr.begin(), keyStr.end(), [](wchar_t ch) { return !iswspace(ch); }));
-    keyStr.erase(std::find_if(keyStr.rbegin(), keyStr.rend(), [](wchar_t ch) { return !iswspace(ch); }).base(), keyStr.end());
-    std::transform(keyStr.begin(), keyStr.end(), keyStr.begin(), ::towupper);
-    if (keyStr.empty()) return 0;
-
-    if (keyStr.length() > 1 && keyStr[0] == L'F') {
-        try {
-            int fNum = std::stoi(keyStr.substr(1));
-            if (fNum >= 1 && fNum <= 12) {
-                return VK_F1 + (fNum - 1);
-            }
-        } catch (...) {}
-        return 0;
+class ComApartmentScope {
+   public:
+    explicit ComApartmentScope(DWORD coInit) : m_hr(CoInitializeEx(nullptr, coInit)) {}
+    ~ComApartmentScope() {
+        if (SUCCEEDED(m_hr)) CoUninitialize();
     }
+    ComApartmentScope(const ComApartmentScope&) = delete;
+    ComApartmentScope& operator=(const ComApartmentScope&) = delete;
+   private:
+    HRESULT m_hr;
+};
 
-    if (_wcsicmp(keyStr.c_str(), L"DELETE") == 0 || _wcsicmp(keyStr.c_str(), L"DEL") == 0) return VK_DELETE;
-    if (_wcsicmp(keyStr.c_str(), L"SPACE") == 0) return VK_SPACE;
-    if (_wcsicmp(keyStr.c_str(), L"ENTER") == 0) return VK_RETURN;
-    if (_wcsicmp(keyStr.c_str(), L"TAB") == 0) return VK_TAB;
-    
-    if (keyStr.length() == 1) {
-        wchar_t c = keyStr[0];
-        if ((c >= L'A' && c <= L'Z') || (c >= L'0' && c <= L'9')) {
-            return c;
-        }
-    }
-    return 0;
-}
+struct ExplorerContext {
+    std::wstring folderPath;
+    std::wstring selectedPath;
+    std::vector<std::wstring> allSelectedPaths;
+    winrt::com_ptr<IShellView> shellView;
+};
 
-void LoadSettings() {
-    auto newShortcuts = std::make_shared<std::vector<CustomShortcut>>();
-
-    for (int i = 0; i < 100; i++) {
-        WindhawkUtils::StringSetting pathStr = WindhawkUtils::StringSetting::make(L"shortcuts[%d].path", i);
-        if (!*pathStr.get()) {
-            break;
-        }
-
-        CustomShortcut sc;
-        sc.path = pathStr.get();
-        sc.enabled = Wh_GetIntSetting(L"shortcuts[%d].enabled", i) != 0;
-
-        WindhawkUtils::StringSetting nameStr = WindhawkUtils::StringSetting::make(L"shortcuts[%d].name", i);
-        sc.name = nameStr.get();
-
-        WindhawkUtils::StringSetting keyStr = WindhawkUtils::StringSetting::make(L"shortcuts[%d].key", i);
-        sc.vkCode = ParseKey(keyStr.get());
-
-        sc.ctrl = Wh_GetIntSetting(L"shortcuts[%d].ctrl", i) != 0;
-        sc.shift = Wh_GetIntSetting(L"shortcuts[%d].shift", i) != 0;
-        sc.alt = Wh_GetIntSetting(L"shortcuts[%d].alt", i) != 0;
-
-        WindhawkUtils::StringSetting argsStr = WindhawkUtils::StringSetting::make(L"shortcuts[%d].args", i);
-        sc.argsPattern = argsStr.get();
-
-        WindhawkUtils::StringSetting modeStr = WindhawkUtils::StringSetting::make(L"shortcuts[%d].mode", i);
-        sc.launchMode = modeStr.get();
-        if (sc.launchMode.empty()) sc.launchMode = L"batch";
-
-        bool isFunctionKey = (sc.vkCode >= VK_F1 && sc.vkCode <= VK_F12);
-        bool hasModifier = (sc.ctrl || sc.shift || sc.alt);
-
-        if (sc.enabled && sc.vkCode != 0 && (hasModifier || isFunctionKey)) {
-            newShortcuts->push_back(sc);
-        } else if (sc.enabled && sc.vkCode != 0 && !hasModifier && !isFunctionKey) {
-            Wh_Log(L"Shortcut '%s' requires at least one modifier key (Ctrl, Shift, Alt). Dropped.", sc.name.c_str());
-        }
-    }
-
-    {
-        std::unique_lock<std::shared_mutex> lock(g_shortcutsMutex);
-        g_shortcuts = std::move(*newShortcuts);
-    }
-}
-
-void Wh_ModSettingsChanged() {
-    LoadSettings();
-}
-
-void QueueBackgroundWork(std::function<void()> task) {
-    auto* fnPtr = new std::function<void()>(std::move(task));
-
-    HANDLE hThread = CreateThread(nullptr, 0, [](LPVOID param) -> DWORD {
-        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-        std::unique_ptr<std::function<void()>> fn(reinterpret_cast<std::function<void()>*>(param));
-        
-        (*fn)();
-
-        CoUninitialize();
-        return 0;
-    }, fnPtr, 0, nullptr);
-
-    if (hThread) {
-        std::lock_guard<std::mutex> lock(g_threadsMutex);
-        auto it = g_threads.begin();
-        while (it != g_threads.end()) {
-            if (WaitForSingleObject(*it, 0) == WAIT_OBJECT_0) {
-                CloseHandle(*it);
-                it = g_threads.erase(it);
-            } else {
-                ++it;
-            }
-        }
-        g_threads.push_back(hThread);
-    } else {
-        delete fnPtr;
-    }
-}
-
-// Safely quote a path, doubling any trailing backslash (e.g. C:\ -> "C:\\") to prevent escaping the closing quote
-std::wstring SafeQuote(const std::wstring& p) {
-    std::wstring res = L"\"" + p;
-    if (!p.empty() && p.back() == L'\\') {
-        res += L'\\';
-    }
-    res += L'\"';
-    return res;
-}
-
-std::wstring JoinPaths(const std::vector<std::wstring>& paths, bool forceQuotes = true) {
-    std::wstring res;
-    for (const auto& p : paths) {
-        if (!res.empty()) res += L" ";
-        if (forceQuotes || p.find(L' ') != std::wstring::npos) {
-            res += SafeQuote(p);
-        } else {
-            res += p;
-        }
-    }
-    return res;
-}
-
-std::wstring GetFileNamesOnly(const std::vector<std::wstring>& paths, bool forceQuotes = true) {
-    std::wstring res;
-    for (const auto& p : paths) {
-        if (!res.empty()) res += L" ";
-        PCWSTR namePtr = PathFindFileNameW(p.c_str());
-        std::wstring name = namePtr ? namePtr : L"";
-        if (forceQuotes || name.find(L' ') != std::wstring::npos) {
-            res += SafeQuote(name);
-        } else {
-            res += name;
-        }
-    }
-    return res;
-}
-
-std::wstring GetFileExtension(const std::vector<std::wstring>& paths) {
-    if (paths.empty()) return L"";
-    PCWSTR ext = PathFindExtensionW(paths[0].c_str());
-    return ext ? ext : L"";
-}
-
-IShellView* GetActiveShellView(HWND hExplorerWnd, HWND hCapturedFocus) {
-    IShellWindows* pShellWindows = nullptr;
-    if (FAILED(CoCreateInstance(CLSID_ShellWindows, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pShellWindows))) || !pShellWindows) {
+winrt::com_ptr<IShellView> GetActiveShellView(HWND hExplorerWnd) {
+    winrt::com_ptr<IShellWindows> shellWindows;
+    if (FAILED(CoCreateInstance(kCLSID_ShellWindows, nullptr, CLSCTX_ALL, IID_PPV_ARGS(shellWindows.put()))) || !shellWindows) {
         return nullptr;
     }
 
     long count = 0;
-    pShellWindows->get_Count(&count);
+    shellWindows->get_Count(&count);
 
-    HWND hActiveTabWnd = nullptr;
-    if (hExplorerWnd) {
-        DWORD threadId = GetWindowThreadProcessId(hExplorerWnd, nullptr);
-        GUITHREADINFO gti = { sizeof(gti) };
-        HWND hFocus = hCapturedFocus ? hCapturedFocus : ((GetGUIThreadInfo(threadId, &gti) && gti.hwndFocus) ? gti.hwndFocus : nullptr);
-
-        for (HWND h = hFocus; h && h != hExplorerWnd; h = GetParent(h)) {
-            WCHAR cls[64];
-            if (GetClassNameW(h, cls, ARRAYSIZE(cls)) && wcscmp(cls, L"ShellTabWindowClass") == 0) {
-                hActiveTabWnd = h;
-                break;
-            }
-        }
-        if (!hActiveTabWnd) {
-            hActiveTabWnd = FindWindowExW(hExplorerWnd, nullptr, L"ShellTabWindowClass", nullptr);
-        }
-    }
+    HWND hActiveTabWnd = hExplorerWnd ? FindWindowExW(hExplorerWnd, nullptr, L"ShellTabWindowClass", nullptr) : nullptr;
 
     for (long i = 0; i < count; i++) {
         VARIANT index;
@@ -422,491 +561,2578 @@ IShellView* GetActiveShellView(HWND hExplorerWnd, HWND hCapturedFocus) {
         index.vt = VT_I4;
         index.lVal = i;
 
-        IDispatch* pDispatch = nullptr;
-        if (FAILED(pShellWindows->Item(index, &pDispatch)) || !pDispatch) continue;
+        winrt::com_ptr<IDispatch> dispatch;
+        if (FAILED(shellWindows->Item(index, dispatch.put())) || !dispatch) continue;
 
-        IWebBrowser2* pWebBrowser = nullptr;
-        if (SUCCEEDED(pDispatch->QueryInterface(IID_PPV_ARGS(&pWebBrowser)))) {
-            SHANDLE_PTR hWndRaw = 0;
-            if (SUCCEEDED(pWebBrowser->get_HWND(&hWndRaw)) && (!hExplorerWnd || (HWND)hWndRaw == hExplorerWnd)) {
-                IServiceProvider* pServiceProvider = nullptr;
-                if (SUCCEEDED(pDispatch->QueryInterface(IID_PPV_ARGS(&pServiceProvider)))) {
-                    IShellBrowser* pShellBrowser = nullptr;
-                    if (SUCCEEDED(pServiceProvider->QueryService(SID_STopLevelBrowser, IID_PPV_ARGS(&pShellBrowser)))) {
-                        HWND hTabWnd = nullptr;
-                        if (SUCCEEDED(pShellBrowser->GetWindow(&hTabWnd)) && hTabWnd) {
-                            if (hActiveTabWnd && hTabWnd != hActiveTabWnd) {
-                                pShellBrowser->Release();
-                                pServiceProvider->Release();
-                                pWebBrowser->Release();
-                                pDispatch->Release();
-                                continue;
-                            }
-                        }
+        auto webBrowser = dispatch.try_as<IWebBrowser2>();
+        if (!webBrowser) continue;
 
-                        IShellView* pShellView = nullptr;
-                        if (SUCCEEDED(pShellBrowser->QueryActiveShellView(&pShellView)) && pShellView) {
-                            pShellBrowser->Release();
-                            pServiceProvider->Release();
-                            pWebBrowser->Release();
-                            pDispatch->Release();
-                            pShellWindows->Release();
-                            return pShellView;
-                        }
-                        pShellBrowser->Release();
-                    }
-                    pServiceProvider->Release();
-                }
+        SHANDLE_PTR hWndRaw = 0;
+        if (FAILED(webBrowser->get_HWND(&hWndRaw)) || (hExplorerWnd && (HWND)hWndRaw != hExplorerWnd)) continue;
+
+        auto serviceProvider = dispatch.try_as<IServiceProvider>();
+        if (!serviceProvider) continue;
+
+        winrt::com_ptr<IShellBrowser> shellBrowser;
+        if (FAILED(serviceProvider->QueryService(kSID_STopLevelBrowser, IID_PPV_ARGS(shellBrowser.put()))) || !shellBrowser) continue;
+
+        HWND hTabWnd = nullptr;
+        if (SUCCEEDED(shellBrowser->GetWindow(&hTabWnd)) && hTabWnd) {
+            if (hActiveTabWnd) {
+                if (hTabWnd != hActiveTabWnd) continue;
+            } else if (!IsWindowVisible(hTabWnd)) {
+                continue;
             }
-            pWebBrowser->Release();
         }
-        pDispatch->Release();
+
+        winrt::com_ptr<IShellView> shellView;
+        if (SUCCEEDED(shellBrowser->QueryActiveShellView(shellView.put())) && shellView) {
+            return shellView;
+        }
     }
 
-    pShellWindows->Release();
     return nullptr;
 }
 
-std::wstring GetActiveFolderPath(IShellView* psv) {
-    std::wstring result;
-    if (!psv) return result;
+bool ShellViewHasSelection(winrt::com_ptr<IShellView> const& shellView) {
+    auto folderView = shellView.try_as<IFolderView>();
+    if (!folderView) return false;
+    int count = 0;
+    return SUCCEEDED(folderView->ItemCount(SVGIO_SELECTION, &count)) && count > 0;
+}
 
-    IFolderView* pfv = nullptr;
-    if (SUCCEEDED(psv->QueryInterface(IID_PPV_ARGS(&pfv)))) {
-        IPersistFolder2* ppf2 = nullptr;
-        if (SUCCEEDED(pfv->GetFolder(IID_PPV_ARGS(&ppf2)))) {
-            PIDLIST_ABSOLUTE pidl = nullptr;
-            if (SUCCEEDED(ppf2->GetCurFolder(&pidl)) && pidl) {
-                std::vector<WCHAR> buffer(UNICODE_STRING_MAX_CHARS);
-                if (SHGetPathFromIDListEx(pidl, buffer.data(), static_cast<DWORD>(buffer.size()), GPFIDL_DEFAULT)) {
-                    result = buffer.data();
-                    if (result.rfind(L"\\\\?\\", 0) == 0) {
-                        result = result.substr(4);
-                    }
-                }
-                CoTaskMemFree(pidl);
-            }
-            ppf2->Release();
+struct FindWindowByClassParam {
+    PCWSTR className;
+    HWND result;
+};
+
+HWND FindDescendantWindow(HWND hParentWnd, PCWSTR className) {
+    FindWindowByClassParam param{className, nullptr};
+    EnumChildWindows(hParentWnd, [](HWND hWnd, LPARAM lParam) -> BOOL {
+        auto& p = *(FindWindowByClassParam*)lParam;
+        WCHAR buffer[64];
+        if (GetClassNameW(hWnd, buffer, ARRAYSIZE(buffer)) && _wcsicmp(buffer, p.className) == 0) {
+            p.result = hWnd;
+            return FALSE;
         }
-        pfv->Release();
+        return TRUE;
+    }, (LPARAM)&param);
+    return param.result;
+}
+
+HWND FindShellViewWindow(HWND hExplorerWnd) {
+    HWND hTabWnd = FindWindowExW(hExplorerWnd, nullptr, L"ShellTabWindowClass", nullptr);
+    if (hTabWnd) {
+        if (HWND hViewWnd = FindDescendantWindow(hTabWnd, L"SHELLDLL_DefView")) return hViewWnd;
     }
+    return FindDescendantWindow(hExplorerWnd, L"SHELLDLL_DefView");
+}
+
+bool RequestShellViewContextMenu(HWND hExplorerWnd) {
+    HWND hViewWnd = FindShellViewWindow(hExplorerWnd);
+    if (!hViewWnd) return false;
+    return PostMessageW(hViewWnd, WM_CONTEXTMENU, (WPARAM)hViewWnd, (LPARAM)-1) != FALSE;
+}
+
+winrt::com_ptr<IContextMenu> GetShellContextMenu(HWND hExplorerWnd, bool* isItemMenu) {
+    *isItemMenu = false;
+    auto shellView = GetActiveShellView(hExplorerWnd);
+    if (!shellView) return nullptr;
+
+    *isItemMenu = ShellViewHasSelection(shellView);
+    UINT viewObject = *isItemMenu ? SVGIO_SELECTION : SVGIO_BACKGROUND;
+
+    winrt::com_ptr<IContextMenu> contextMenu;
+    HRESULT hr = shellView->GetItemObject(viewObject, __uuidof(IContextMenu), contextMenu.put_void());
+    if (FAILED(hr) || !contextMenu) return nullptr;
+    return contextMenu;
+}
+
+constexpr UINT kContextMenuFirstCmdId = 1;
+constexpr UINT kContextMenuLastCmdId = 0x7FFF;
+thread_local IContextMenu2* g_trackedContextMenu2;
+thread_local IContextMenu3* g_trackedContextMenu3;
+thread_local bool g_contextMenuIsOpen;
+std::atomic<int> g_openContextMenuCount;
+
+struct OpenContextMenuScope {
+    OpenContextMenuScope() { g_openContextMenuCount++; }
+    ~OpenContextMenuScope() { g_openContextMenuCount--; }
+    OpenContextMenuScope(const OpenContextMenuScope&) = delete;
+    OpenContextMenuScope& operator=(const OpenContextMenuScope&) = delete;
+};
+
+LRESULT CALLBACK ContextMenuOwnerWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_INITMENUPOPUP:
+        case WM_DRAWITEM:
+        case WM_MEASUREITEM:
+            if (g_trackedContextMenu3) {
+                LRESULT result = 0;
+                if (SUCCEEDED(g_trackedContextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, &result))) return result;
+            } else if (g_trackedContextMenu2 && SUCCEEDED(g_trackedContextMenu2->HandleMenuMsg(uMsg, wParam, lParam))) {
+                return uMsg == WM_INITMENUPOPUP ? 0 : TRUE;
+            }
+            break;
+        case WM_MENUCHAR:
+            if (g_trackedContextMenu3) {
+                LRESULT result = 0;
+                if (SUCCEEDED(g_trackedContextMenu3->HandleMenuMsg2(uMsg, wParam, lParam, &result)) && result) return result;
+            }
+            break;
+    }
+    return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+}
+
+std::wstring ContextMenuOwnerClassName() {
+    return std::wstring(L"WindhawkContextMenuOwner_") + WH_MOD_ID;
+}
+
+HINSTANCE GetCurrentModuleHandle() {
+    HINSTANCE hInst = nullptr;
+    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                      (LPCWSTR)&GetCurrentModuleHandle, &hInst);
+    return hInst;
+}
+
+std::atomic<bool> g_contextMenuOwnerClassRegistered;
+std::mutex g_contextMenuOwnersMutex;
+std::unordered_map<DWORD, HWND> g_contextMenuOwners;
+
+bool IsContextMenuOwnerWindow(DWORD threadId, HWND hWnd) {
+    if (!IsWindow(hWnd) || GetWindowThreadProcessId(hWnd, nullptr) != threadId) return false;
+    WCHAR className[128];
+    return GetClassNameW(hWnd, className, ARRAYSIZE(className)) &&
+           _wcsicmp(className, ContextMenuOwnerClassName().c_str()) == 0;
+}
+
+void RegisterContextMenuOwnerClass() {
+    std::wstring className = ContextMenuOwnerClassName();
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = ContextMenuOwnerWndProc;
+    wc.hInstance = GetCurrentModuleHandle();
+    wc.lpszClassName = className.c_str();
+    if (!RegisterClassExW(&wc)) return;
+    g_contextMenuOwnerClassRegistered = true;
+}
+
+HWND EnsureContextMenuOwnerWindow() {
+    DWORD threadId = GetCurrentThreadId();
+    {
+        std::lock_guard<std::mutex> lock(g_contextMenuOwnersMutex);
+        auto it = g_contextMenuOwners.find(threadId);
+        if (it != g_contextMenuOwners.end() && IsContextMenuOwnerWindow(threadId, it->second)) {
+            return it->second;
+        }
+        if (it != g_contextMenuOwners.end()) g_contextMenuOwners.erase(it);
+    }
+
+    if (!g_contextMenuOwnerClassRegistered) return nullptr;
+
+    HWND hWnd = CreateWindowExW(0, ContextMenuOwnerClassName().c_str(), nullptr,
+                                0, 0, 0, 0, 0, nullptr, nullptr, GetCurrentModuleHandle(), nullptr);
+    if (!hWnd) return nullptr;
+
+    std::lock_guard<std::mutex> lock(g_contextMenuOwnersMutex);
+    g_contextMenuOwners[threadId] = hWnd;
+    return hWnd;
+}
+
+void DismissOpenContextMenus() {
+    while (g_openContextMenuCount > 0) {
+        {
+            std::lock_guard<std::mutex> lock(g_contextMenuOwnersMutex);
+            for (auto const& [threadId, hWnd] : g_contextMenuOwners) {
+                if (IsContextMenuOwnerWindow(threadId, hWnd)) PostMessageW(hWnd, WM_CANCELMODE, 0, 0);
+            }
+        }
+        Sleep(10);
+    }
+}
+
+void DestroyContextMenuOwnerWindowForCurrentThread() {
+    if (g_contextMenuIsOpen) return;
+    HWND hWnd = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_contextMenuOwnersMutex);
+        auto it = g_contextMenuOwners.find(GetCurrentThreadId());
+        if (it == g_contextMenuOwners.end()) return;
+        hWnd = it->second;
+        g_contextMenuOwners.erase(it);
+    }
+    DestroyWindow(hWnd);
+}
+
+void InvokeShellContextMenuCommand(winrt::com_ptr<IContextMenu> const& contextMenu, UINT cmdId, HWND hExplorerWnd, POINT point) {
+    CMINVOKECOMMANDINFOEX info{};
+    info.cbSize = sizeof(info);
+    info.fMask = CMIC_MASK_UNICODE | CMIC_MASK_PTINVOKE;
+    info.hwnd = hExplorerWnd;
+    info.lpVerb = (LPCSTR)(UINT_PTR)(cmdId - kContextMenuFirstCmdId);
+    info.lpVerbW = (LPCWSTR)(UINT_PTR)(cmdId - kContextMenuFirstCmdId);
+    info.nShow = SW_SHOWNORMAL;
+    info.ptInvoke = point;
+    if (GetKeyState(VK_CONTROL) & 0x8000) info.fMask |= CMIC_MASK_CONTROL_DOWN;
+    if (GetKeyState(VK_SHIFT) & 0x8000) info.fMask |= CMIC_MASK_SHIFT_DOWN;
+    contextMenu->InvokeCommand((CMINVOKECOMMANDINFO*)&info);
+}
+
+void ShowShellContextMenu(HWND hExplorerWnd, POINT point) {
+    if (g_contextMenuIsOpen || g_unloading) return;
+    OpenContextMenuScope openScope;
+
+    bool useNilesoftShell;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        useNilesoftShell = g_settings.contextMenuItem.useNilesoftShell;
+    }
+
+    if (useNilesoftShell && RequestShellViewContextMenu(hExplorerWnd)) return;
+
+    HWND hOwnerWnd = EnsureContextMenuOwnerWindow();
+    if (!hOwnerWnd) return;
+
+    ComApartmentScope comScope(COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+    bool isItemMenu = false;
+    auto contextMenu = GetShellContextMenu(hExplorerWnd, &isItemMenu);
+    if (!contextMenu) return;
+
+    HMENU hMenu = CreatePopupMenu();
+    if (!hMenu) return;
+
+    UINT flags = isItemMenu ? CMF_CANRENAME : CMF_NORMAL;
+    if (GetKeyState(VK_SHIFT) & 0x8000) flags |= CMF_EXTENDEDVERBS;
+
+    if (FAILED(contextMenu->QueryContextMenu(hMenu, 0, kContextMenuFirstCmdId, kContextMenuLastCmdId, flags)) || g_unloading) {
+        DestroyMenu(hMenu);
+        return;
+    }
+
+    auto contextMenu2 = contextMenu.try_as<IContextMenu2>();
+    auto contextMenu3 = contextMenu.try_as<IContextMenu3>();
+    g_trackedContextMenu2 = contextMenu2.get();
+    g_trackedContextMenu3 = contextMenu3.get();
+    g_contextMenuIsOpen = true;
+
+    UINT cmdId = (UINT)TrackPopupMenuEx(hMenu, TPM_RETURNCMD | TPM_LEFTBUTTON | TPM_RIGHTBUTTON | TPM_LEFTALIGN,
+                                        point.x, point.y, hOwnerWnd, nullptr);
+
+    g_contextMenuIsOpen = false;
+    g_trackedContextMenu2 = nullptr;
+    g_trackedContextMenu3 = nullptr;
+
+    if (cmdId >= kContextMenuFirstCmdId && cmdId <= kContextMenuLastCmdId && !g_unloading) {
+        InvokeShellContextMenuCommand(contextMenu, cmdId, hExplorerWnd, point);
+    }
+
+    DestroyMenu(hMenu);
+}
+
+ExplorerContext GetExplorerContext(HWND hExplorerWnd) {
+    ExplorerContext result;
+    result.shellView = GetActiveShellView(hExplorerWnd);
+    if (!result.shellView) return result;
+
+    if (auto folderView = result.shellView.try_as<IFolderView>()) {
+        winrt::com_ptr<IPersistFolder2> persistFolder;
+        LPITEMIDLIST pidl = nullptr;
+        if (SUCCEEDED(folderView->GetFolder(IID_PPV_ARGS(persistFolder.put()))) && persistFolder &&
+            SUCCEEDED(persistFolder->GetCurFolder(&pidl)) && pidl) {
+            WCHAR path[MAX_PATH];
+            if (SHGetPathFromIDListEx(pidl, path, ARRAYSIZE(path), GPFIDL_DEFAULT)) {
+                result.folderPath = path;
+            }
+            CoTaskMemFree(pidl);
+        }
+    }
+
+    winrt::com_ptr<IShellItemArray> selection;
+    if (SUCCEEDED(result.shellView->GetItemObject(SVGIO_SELECTION, IID_PPV_ARGS(selection.put()))) && selection) {
+        DWORD count = 0;
+        selection->GetCount(&count);
+        for (DWORD i = 0; i < count; i++) {
+            winrt::com_ptr<IShellItem> shellItem;
+            if (SUCCEEDED(selection->GetItemAt(i, shellItem.put())) && shellItem) {
+                PWSTR itemPath = nullptr;
+                if (SUCCEEDED(shellItem->GetDisplayName(SIGDN_FILESYSPATH, &itemPath)) && itemPath) {
+                    if (result.selectedPath.empty()) result.selectedPath = itemPath;
+                    result.allSelectedPaths.push_back(itemPath);
+                    CoTaskMemFree(itemPath);
+                }
+            }
+        }
+    }
+
     return result;
 }
 
-std::vector<std::wstring> GetSelectedPaths(IShellView* psv) {
-    std::vector<std::wstring> files;
-    if (!psv) return files;
+bool ReplacePlaceholder(std::wstring& parameters, std::wstring_view placeholder, std::wstring const& value) {
+    size_t pos = parameters.find(placeholder);
+    if (pos == std::wstring::npos) return true;
+    if (value.empty()) return false;
 
-    IDataObject* pdo = nullptr;
-    if (SUCCEEDED(psv->GetItemObject(SVGIO_SELECTION, IID_PPV_ARGS(&pdo)))) {
-        FORMATETC fmt = { CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
-        STGMEDIUM stg = { 0 };
-        if (SUCCEEDED(pdo->GetData(&fmt, &stg))) {
-            HDROP hDrop = (HDROP)stg.hGlobal;
-            UINT fileCount = DragQueryFileW(hDrop, 0xFFFFFFFF, nullptr, 0);
-            for (UINT j = 0; j < fileCount; j++) {
-                UINT requiredLen = DragQueryFileW(hDrop, j, nullptr, 0);
-                if (requiredLen > 0) {
-                    std::vector<WCHAR> pathBuf(requiredLen + 1);
-                    if (DragQueryFileW(hDrop, j, pathBuf.data(), requiredLen + 1)) {
-                        files.push_back(pathBuf.data());
-                    }
-                }
-            }
-            ReleaseStgMedium(&stg);
+    while (pos != std::wstring::npos) {
+        std::wstring replacement = value;
+        if (replacement.back() == L'\\' && pos + placeholder.size() < parameters.size() && parameters[pos + placeholder.size()] == L'"') {
+            replacement += L'\\';
         }
-        pdo->Release();
+        parameters.replace(pos, placeholder.size(), replacement);
+        pos = parameters.find(placeholder, pos + replacement.size());
     }
-    return files;
+    return true;
 }
 
-std::wstring ExpandTokens(
-    const std::wstring& pattern,
-    const std::wstring& activeDir,
-    const std::vector<std::wstring>& allItems,
-    const std::vector<std::wstring>& filesOnly,
-    const std::vector<std::wstring>& foldersOnly
-) {
-    std::wstring result;
-    result.reserve(pattern.size() * 2);
+std::wstring BuildParameters(std::wstring parameters, ExplorerContext const& context) {
+    if (parameters.find(L"%sel%") != std::wstring::npos) {
+        if (context.allSelectedPaths.empty()) return std::wstring();
 
-    for (size_t i = 0; i < pattern.size(); ) {
-        if (pattern[i] != L'%') {
-            result.push_back(pattern[i++]);
-            continue;
+        // Build a space-separated string of quoted paths
+        std::wstring formattedPaths;
+        for (auto const& path : context.allSelectedPaths) {
+            std::wstring safe = path;
+            if (!safe.empty() && safe.back() == L'\\') safe += L'\\';
+            formattedPaths += L"\"" + safe + L"\" ";
         }
+        if (!formattedPaths.empty()) formattedPaths.pop_back();
 
-        if (pattern.compare(i, 6, L"%files") == 0) {
-            result += JoinPaths(filesOnly, true);
-            i += 6;
-        } else if (pattern.compare(i, 8, L"%folders") == 0) {
-            result += JoinPaths(foldersOnly, true);
-            i += 8;
-        } else if (pattern.compare(i, 8, L"%d_smart") == 0) {
-            std::wstring smartDir = !foldersOnly.empty() ? foldersOnly[0] : activeDir;
-            if (!smartDir.empty() && smartDir.back() == L'\\') smartDir += L'\\';
-            result += smartDir;
-            i += 8;
-        } else if (pattern.compare(i, 4, L"%ext") == 0) {
-            result += GetFileExtension(allItems);
-            i += 4;
-        } else if (pattern.compare(i, 2, L"%f") == 0) {
-            result += JoinPaths(allItems, true);
-            i += 2;
-        } else if (pattern.compare(i, 2, L"%1") == 0) {
-            result += allItems.empty() ? L"" : SafeQuote(allItems[0]);
-            i += 2;
-        } else if (pattern.compare(i, 2, L"%n") == 0) {
-            result += GetFileNamesOnly(allItems, true);
-            i += 2;
-        } else if (pattern.compare(i, 2, L"%c") == 0) {
-            result += std::to_wstring(allItems.size());
-            i += 2;
-        } else if (pattern.compare(i, 2, L"%s") == 0) {
-            result += JoinPaths(allItems, false);
-            i += 2;
-        } else if (pattern.compare(i, 2, L"%d") == 0) {
-            std::wstring activeWithTrailing = activeDir;
-            if (!activeWithTrailing.empty() && activeWithTrailing.back() == L'\\') activeWithTrailing += L'\\';
-            result += activeWithTrailing;
-            i += 2;
-        } else if (pattern.compare(i, 2, L"%p") == 0) {
-            std::wstring parent = activeDir;
-            while (!parent.empty() && parent.back() == L'\\') parent.pop_back();
-            size_t slash = parent.find_last_of(L'\\');
-            if (slash == std::wstring::npos) {
-                result += std::wstring();
-            } else {
-                std::wstring p = parent.substr(0, slash);
-                if (p.length() == 2 && p[1] == L':') p += L'\\';
-                result += p;
-            }
-            i += 2;
+        // Replace "%sel%" (with existing quotes) first to avoid double enclosing quotes
+        size_t quotedPos = parameters.find(L"\"%sel%\"");
+        if (quotedPos != std::wstring::npos) {
+            parameters.replace(quotedPos, 7, formattedPaths);
         } else {
-            result.push_back(pattern[i++]);
+            size_t unquotedPos = parameters.find(L"%sel%");
+            if (unquotedPos != std::wstring::npos) {
+                parameters.replace(unquotedPos, 5, formattedPaths);
+            }
         }
     }
+
+    if (!ReplacePlaceholder(parameters, L"%path%", context.folderPath)) {
+        return std::wstring();
+    }
+
+    return parameters;
+}
+
+void LaunchItemForWindow(HWND hExplorerWnd, ActionItem const& item, ExplorerContext const& capturedContext) {
+    std::wstring command = ResolveCommandPath(item.command);
+    std::wstring lowerCmd = ToLower(item.command);
+    bool isPath = command.find(L'\\') != std::wstring::npos;
+    bool isNotepad = (lowerCmd == L"notepad.exe" || lowerCmd == L"notepad" || lowerCmd.find(L"windowsnotepad") != std::wstring::npos);
+
+    // Modern Win11 Notepad only accepts one file per process launch invocation.
+    // If multiple files are selected, launch each file individually into Notepad.
+    if (isNotepad && capturedContext.allSelectedPaths.size() > 1 && item.parameters.find(L"%sel%") != std::wstring::npos) {
+        for (const auto& singlePath : capturedContext.allSelectedPaths) {
+            std::wstring param = L"\"" + singlePath + L"\"";
+            SHELLEXECUTEINFOW execInfo{};
+            execInfo.cbSize = sizeof(execInfo);
+            execInfo.fMask = SEE_MASK_FLAG_NO_UI | SEE_MASK_NOASYNC;
+            execInfo.lpFile = command.c_str();
+            execInfo.lpParameters = param.c_str();
+            execInfo.lpDirectory = (isPath && !capturedContext.folderPath.empty()) ? capturedContext.folderPath.c_str() : nullptr;
+            execInfo.nShow = SW_SHOWNORMAL;
+            ShellExecuteExW(&execInfo);
+        }
+        return;
+    }
+
+    // Default execution for all other tools / single selection
+    std::wstring parameters = BuildParameters(item.parameters, capturedContext);
+
+    SHELLEXECUTEINFOW execInfo{};
+    execInfo.cbSize = sizeof(execInfo);
+    execInfo.fMask = SEE_MASK_FLAG_NO_UI | SEE_MASK_NOASYNC;
+    execInfo.lpFile = command.c_str();
+    execInfo.lpParameters = parameters.empty() ? nullptr : parameters.c_str();
+    execInfo.lpDirectory = (isPath && !capturedContext.folderPath.empty()) ? capturedContext.folderPath.c_str() : nullptr;
+    execInfo.nShow = SW_SHOWNORMAL;
+
+    ShellExecuteExW(&execInfo);
+}
+
+std::mutex g_launchThreadsMutex;
+std::vector<HANDLE> g_launchThreads;
+
+void TrackLaunchThread(HANDLE thread) {
+    std::lock_guard<std::mutex> lock(g_launchThreadsMutex);
+    for (auto it = g_launchThreads.begin(); it != g_launchThreads.end();) {
+        if (WaitForSingleObject(*it, 0) == WAIT_OBJECT_0) {
+            CloseHandle(*it);
+            it = g_launchThreads.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    g_launchThreads.push_back(thread);
+}
+
+void WaitForLaunchThreads() {
+    std::vector<HANDLE> threads;
+    {
+        std::lock_guard<std::mutex> lock(g_launchThreadsMutex);
+        threads.swap(g_launchThreads);
+    }
+    for (HANDLE thread : threads) {
+        WaitForSingleObject(thread, INFINITE);
+        CloseHandle(thread);
+    }
+}
+
+void RunShellWorkOnWorkerThread(std::function<void()> work) {
+    auto* pWork = new std::function<void()>(std::move(work));
+    HANDLE thread = CreateThread(
+        nullptr, 0,
+        [](LPVOID lpParam) -> DWORD {
+            std::unique_ptr<std::function<void()>> work(reinterpret_cast<std::function<void()>*>(lpParam));
+            ComApartmentScope comScope(COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+            try {
+                (*work)();
+            } catch (...) {
+            }
+            return 0;
+        },
+        pWork, 0, nullptr);
+
+    if (thread) {
+        TrackLaunchThread(thread);
+    } else {
+        delete pWork;
+    }
+}
+
+
+HWND GetExplorerWindowForElement(mux::FrameworkElement const& element) {
+    HWND hWnd = nullptr;
+    try {
+        if (auto xamlRoot = element.XamlRoot()) {
+            if (auto environment = xamlRoot.ContentIslandEnvironment()) {
+                hWnd = (HWND)(uintptr_t)environment.AppWindowId().Value;
+            }
+        }
+    } catch (...) {
+    }
+
+    if (!hWnd) hWnd = GetActiveWindow();
+    if (!hWnd) {
+        HWND hForegroundWnd = GetForegroundWindow();
+        DWORD processId = 0;
+        if (hForegroundWnd && GetWindowThreadProcessId(hForegroundWnd, &processId) && processId == GetCurrentProcessId()) {
+            hWnd = hForegroundWnd;
+        }
+    }
+    if (hWnd) hWnd = GetAncestor(hWnd, GA_ROOT);
+    return hWnd;
+}
+
+void OnActionInvoked(mux::FrameworkElement const& elementForWindow, ActionItem const& item) {
+    if (item.command.empty() || g_unloading) return;
+
+    HWND hWnd = GetExplorerWindowForElement(elementForWindow);
+
+    if (item.command == L"internal:TogglePreview") {
+        INPUT inputs[4] = {};
+        inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_MENU;
+        inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = 'P';
+        inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = 'P';     inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+        inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = VK_MENU; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+        SendInput(4, inputs, sizeof(INPUT));
+        return;
+    }
+
+    if (item.command == L"internal:ToggleDetails") {
+        INPUT inputs[6] = {};
+        inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_MENU;
+        inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = VK_SHIFT;
+        inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = 'P';
+        inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = 'P';      inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+        inputs[4].type = INPUT_KEYBOARD; inputs[4].ki.wVk = VK_SHIFT; inputs[4].ki.dwFlags = KEYEVENTF_KEYUP;
+        inputs[5].type = INPUT_KEYBOARD; inputs[5].ki.wVk = VK_MENU;  inputs[5].ki.dwFlags = KEYEVENTF_KEYUP;
+        SendInput(6, inputs, sizeof(INPUT));
+        return;
+    }
+
+    if (item.command == L"internal:FolderOptions") {
+        RunShellWorkOnWorkerThread([]() {
+            ShellExecuteW(nullptr, L"open", L"control.exe", L"folders", nullptr, SW_SHOWNORMAL);
+        });
+        return;
+    }
+
+    // Capture context directly on the UI STA thread for batch selections
+    ExplorerContext context = GetExplorerContext(hWnd);
+
+    RunShellWorkOnWorkerThread([hWnd, item, context]() {
+        LaunchItemForWindow(hWnd, item, context);
+    });
+}
+
+std::wstring GetPowerToysNewPlusFolder() {
+    return ExpandEnvVars(L"%LOCALAPPDATA%\\Microsoft\\PowerToys\\NewPlus");
+}
+
+std::wstring DefaultTemplatesFolder() {
+    return JoinPath(GetPowerToysNewPlusFolder(), L"Templates");
+}
+
+std::wstring ReadFileAsWideString(std::wstring const& path) {
+    HANDLE hFile = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return std::wstring();
+
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(hFile, &size) || size.QuadPart <= 0 || size.QuadPart > 1024 * 1024) {
+        CloseHandle(hFile);
+        return std::wstring();
+    }
+
+    std::string bytes((size_t)size.QuadPart, '\0');
+    DWORD bytesRead = 0;
+    BOOL succeeded = ReadFile(hFile, bytes.data(), (DWORD)bytes.size(), &bytesRead, nullptr);
+    CloseHandle(hFile);
+    if (!succeeded) return std::wstring();
+
+    bytes.resize(bytesRead);
+    if (bytes.size() >= 3 && (unsigned char)bytes[0] == 0xEF && (unsigned char)bytes[1] == 0xBB && (unsigned char)bytes[2] == 0xBF) {
+        bytes.erase(0, 3);
+    }
+
+    int length = MultiByteToWideChar(CP_UTF8, 0, bytes.data(), (int)bytes.size(), nullptr, 0);
+    if (length <= 0) return std::wstring();
+
+    std::wstring result((size_t)length, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, bytes.data(), (int)bytes.size(), result.data(), length);
     return result;
 }
 
-void ExecuteApp(const std::wstring& cmd, const std::wstring& params, const std::wstring& workDir) {
-    std::wstring targetPath = ResolveCommandPath(cmd);
-    bool isPath = targetPath.find(L'\\') != std::wstring::npos;
-
-    SHELLEXECUTEINFOW sei = { sizeof(sei) };
-    sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
-    sei.hwnd = nullptr;
-    sei.lpVerb = L"open";
-    sei.lpFile = targetPath.c_str();
-    sei.lpParameters = params.empty() ? nullptr : params.c_str();
-    sei.lpDirectory = (isPath && !workDir.empty()) ? workDir.c_str() : nullptr;
-    sei.nShow = SW_SHOWNORMAL;
-
-    if (!ShellExecuteExW(&sei)) {
-        Wh_Log(L"ShellExecuteExW failed for %s (error %lu)", targetPath.c_str(), GetLastError());
+wdj::IJsonValue FindNewPlusSetting(wdj::JsonObject const& root, PCWSTR name) {
+    wdj::JsonObject properties = root;
+    if (auto nested = root.TryLookup(L"properties"); nested && nested.ValueType() == wdj::JsonValueType::Object) {
+        properties = nested.GetObject();
     }
+    auto value = properties.TryLookup(name);
+    if (value && value.ValueType() == wdj::JsonValueType::Object) {
+        return value.GetObject().TryLookup(L"value");
+    }
+    return value;
 }
 
-void ExecuteInternalCommand(const std::wstring& command, HWND rootHwnd, HWND capturedFocus) {
-    if (_wcsicmp(command.c_str(), L"internal:folderOptions") == 0) {
-        ExecuteApp(L"rundll32.exe", L"shell32.dll,Options_RunDLL 0", L"");
-        return;
-    }
+struct PowerToysConfig {
+    std::wstring templateFolder;
+    bool hideFileExtension = true;
+    bool hideStartingDigits = true;
+    bool replaceVariables = false;
+};
 
-    if (_wcsicmp(command.c_str(), L"internal:toggleHiddenFiles") == 0) {
-        SHELLSTATE ss{};
-        SHGetSetSettings(&ss, SSF_SHOWALLOBJECTS, FALSE);
-        ss.fShowAllObjects = !ss.fShowAllObjects;
-        SHGetSetSettings(&ss, SSF_SHOWALLOBJECTS, TRUE);
-        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
-        return;
-    }
+PowerToysConfig ReadPowerToysConfig() {
+    PowerToysConfig config;
+    std::wstring json = ReadFileAsWideString(JoinPath(GetPowerToysNewPlusFolder(), L"settings.json"));
+    if (json.empty()) return config;
 
-    if (_wcsicmp(command.c_str(), L"internal:toggleFileExtensions") == 0) {
-        SHELLSTATE ss{};
-        SHGetSetSettings(&ss, SSF_SHOWEXTENSIONS, FALSE);
-        ss.fShowExtensions = !ss.fShowExtensions;
-        SHGetSetSettings(&ss, SSF_SHOWEXTENSIONS, TRUE);
-        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
-        return;
-    }
+    wdj::JsonObject root{nullptr};
+    if (!wdj::JsonObject::TryParse(json, root)) return config;
 
-    if (_wcsicmp(command.c_str(), L"internal:openRecycleBin") == 0) {
-        IShellView* psv = GetActiveShellView(rootHwnd, capturedFocus);
-        if (psv) {
-            PIDLIST_ABSOLUTE pidlRecycle = nullptr;
-            if (SUCCEEDED(SHGetKnownFolderIDList(FOLDERID_RecycleBinFolder, 0, nullptr, &pidlRecycle)) && pidlRecycle) {
-                IServiceProvider* psp = nullptr;
-                if (SUCCEEDED(psv->QueryInterface(IID_PPV_ARGS(&psp)))) {
-                    IShellBrowser* psb = nullptr;
-                    if (SUCCEEDED(psp->QueryService(SID_STopLevelBrowser, IID_PPV_ARGS(&psb)))) {
-                        psb->BrowseObject(pidlRecycle, SBSP_SAMEBROWSER | SBSP_ABSOLUTE);
-                        psb->Release();
-                    }
-                    psp->Release();
-                }
-                CoTaskMemFree(pidlRecycle);
+    auto readBool = [&root](PCWSTR name, bool fallback) {
+        auto value = FindNewPlusSetting(root, name);
+        if (!value) return fallback;
+        switch (value.ValueType()) {
+            case wdj::JsonValueType::Boolean: return value.GetBoolean();
+            case wdj::JsonValueType::Number: return value.GetNumber() != 0;
+            case wdj::JsonValueType::String: {
+                std::wstring text = ToLower(std::wstring(value.GetString()));
+                if (text == L"true" || text == L"1") return true;
+                if (text == L"false" || text == L"0") return false;
+                return fallback;
             }
-            psv->Release();
+            default: return fallback;
         }
-        return;
+    };
+
+    if (auto templateLocation = FindNewPlusSetting(root, L"TemplateLocation");
+        templateLocation && templateLocation.ValueType() == wdj::JsonValueType::String) {
+        config.templateFolder = TrimQuotesAndSpaces(std::wstring(templateLocation.GetString()));
     }
 
-    if (_wcsicmp(command.c_str(), L"internal:emptyRecycleBin") == 0) {
-        // Pass nullptr instead of rootHwnd to prevent cross-thread window attachment stalls
-        SHEmptyRecycleBinW(nullptr, nullptr, 0);
-        return;
-    }
-
-    if (_wcsicmp(command.c_str(), L"internal:newTextFile") == 0) {
-        IShellView* psv = GetActiveShellView(rootHwnd, capturedFocus);
-        if (!psv) return;
-
-        std::wstring currentDir = GetActiveFolderPath(psv);
-        if (currentDir.empty()) {
-            psv->Release();
-            return;
-        }
-
-        std::wstring targetFilePath = currentDir + L"\\New Text Document.txt";
-        int counter = 2;
-        while (GetFileAttributesW(targetFilePath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-            targetFilePath = currentDir + L"\\New Text Document (" + std::to_wstring(counter++) + L").txt";
-        }
-
-        HANDLE hFile = CreateFileW(targetFilePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (hFile != INVALID_HANDLE_VALUE) {
-            CloseHandle(hFile);
-            SHChangeNotify(SHCNE_CREATE, SHCNF_PATHW, targetFilePath.c_str(), nullptr);
-
-            PIDLIST_ABSOLUTE pidlTarget = nullptr;
-            if (SUCCEEDED(SHParseDisplayName(targetFilePath.c_str(), nullptr, &pidlTarget, 0, nullptr)) && pidlTarget) {
-                PITEMID_CHILD pidlChild = ILFindLastID(pidlTarget);
-                if (pidlChild) {
-                    for (int r = 0; r < 5; ++r) {
-                        if (SUCCEEDED(psv->SelectItem(pidlChild, SVSI_SELECT | SVSI_FOCUSED | SVSI_DESELECTOTHERS | SVSI_ENSUREVISIBLE))) {
-                            break;
-                        }
-                        Sleep(40);
-                    }
-                }
-                CoTaskMemFree(pidlTarget);
-            }
-        }
-        psv->Release();
-        return;
-    }
-
-    if (_wcsicmp(command.c_str(), L"internal:newFolder") == 0) {
-        IShellView* psv = GetActiveShellView(rootHwnd, capturedFocus);
-        if (!psv) return;
-
-        std::wstring currentDir = GetActiveFolderPath(psv);
-        if (currentDir.empty()) {
-            psv->Release();
-            return;
-        }
-
-        std::wstring targetFolderPath = currentDir + L"\\New Folder";
-        int counter = 2;
-        while (GetFileAttributesW(targetFolderPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-            targetFolderPath = currentDir + L"\\New Folder (" + std::to_wstring(counter++) + L")";
-        }
-
-        if (CreateDirectoryW(targetFolderPath.c_str(), nullptr)) {
-            SHChangeNotify(SHCNE_MKDIR, SHCNF_PATHW, targetFolderPath.c_str(), nullptr);
-
-            PIDLIST_ABSOLUTE pidlTarget = nullptr;
-            if (SUCCEEDED(SHParseDisplayName(targetFolderPath.c_str(), nullptr, &pidlTarget, 0, nullptr)) && pidlTarget) {
-                PITEMID_CHILD pidlChild = ILFindLastID(pidlTarget);
-                if (pidlChild) {
-                    for (int r = 0; r < 5; ++r) {
-                        if (SUCCEEDED(psv->SelectItem(pidlChild, SVSI_SELECT | SVSI_EDIT | SVSI_DESELECTOTHERS | SVSI_ENSUREVISIBLE))) {
-                            break;
-                        }
-                        Sleep(40);
-                    }
-                }
-                CoTaskMemFree(pidlTarget);
-            }
-        }
-        psv->Release();
-        return;
-    }
-
-    Wh_Log(L"Unknown internal command: %s", command.c_str());
+    config.hideFileExtension = readBool(L"HideFileExtension", config.hideFileExtension);
+    config.hideStartingDigits = readBool(L"HideStartingDigits", config.hideStartingDigits);
+    config.replaceVariables = readBool(L"ReplaceVariables", config.replaceVariables);
+    return config;
 }
 
-void DispatchShortcutExecution(CustomShortcut sc, HWND rootHwnd, HWND capturedFocus) {
-    QueueBackgroundWork([sc = std::move(sc), rootHwnd, capturedFocus]() {
-        if (g_unloading.load()) return;
+struct EffectiveConfig {
+    std::wstring templateFolder;
+    bool hideFileExtension;
+    bool hideStartingDigits;
+    bool replaceVariables;
+    bool showIcons;
+    bool showTemplatesFolderItem;
+};
 
-        if (sc.path.rfind(L"internal:", 0) == 0) {
-            ExecuteInternalCommand(sc.path, rootHwnd, capturedFocus);
-            return;
+EffectiveConfig GetEffectiveConfig() {
+    std::wstring templateFolderSetting;
+    EffectiveConfig config{};
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        templateFolderSetting = g_settings.newPlus.templateFolder;
+        config.showIcons = g_settings.newPlus.showIcons;
+        config.showTemplatesFolderItem = g_settings.newPlus.showTemplatesFolderItem;
+    }
+
+    PowerToysConfig powerToys = ReadPowerToysConfig();
+    config.templateFolder = ExpandEnvVars(!templateFolderSetting.empty() ? templateFolderSetting :
+                                         (!powerToys.templateFolder.empty() ? powerToys.templateFolder : DefaultTemplatesFolder()));
+    config.hideFileExtension = powerToys.hideFileExtension;
+    config.hideStartingDigits = powerToys.hideStartingDigits;
+    config.replaceVariables = powerToys.replaceVariables;
+    return config;
+}
+
+struct TemplateEntry {
+    std::wstring path;
+    std::wstring fileName;
+    std::wstring displayName;
+    bool isDirectory = false;
+};
+
+std::wstring StripStartingDigits(std::wstring const& name) {
+    size_t pos = 0;
+    while (pos < name.size() && iswdigit(name[pos])) pos++;
+    if (pos == 0) return name;
+    while (pos < name.size() && wcschr(L" .-_", name[pos])) pos++;
+    if (pos >= name.size()) return name;
+    return name.substr(pos);
+}
+
+std::wstring MakeDisplayName(std::wstring const& fileName, bool isDirectory, EffectiveConfig const& config) {
+    std::wstring name = fileName;
+    if (!isDirectory && config.hideFileExtension) {
+        size_t dot = name.find_last_of(L'.');
+        if (dot != std::wstring::npos && dot > 0) name.resize(dot);
+    }
+    if (config.hideStartingDigits) name = StripStartingDigits(name);
+    return name;
+}
+
+std::vector<TemplateEntry> EnumerateTemplates(EffectiveConfig const& config) {
+    std::vector<TemplateEntry> entries;
+    std::wstring pattern = JoinPath(config.templateFolder, L"*");
+
+    WIN32_FIND_DATAW findData{};
+    HANDLE hFind = FindFirstFileExW(pattern.c_str(), FindExInfoBasic, &findData,
+                                    FindExSearchNameMatch, nullptr, FIND_FIRST_EX_LARGE_FETCH);
+    if (hFind == INVALID_HANDLE_VALUE) return entries;
+
+    do {
+        std::wstring fileName = findData.cFileName;
+        if (fileName == L"." || fileName == L".." || _wcsicmp(fileName.c_str(), L"desktop.ini") == 0) continue;
+        if (findData.dwFileAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) continue;
+
+        TemplateEntry entry;
+        entry.isDirectory = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        entry.fileName = fileName;
+        entry.path = JoinPath(config.templateFolder, fileName);
+        entry.displayName = MakeDisplayName(fileName, entry.isDirectory, config);
+        entries.push_back(std::move(entry));
+    } while (FindNextFileW(hFind, &findData));
+
+    FindClose(hFind);
+
+    std::sort(entries.begin(), entries.end(), [](TemplateEntry const& a, TemplateEntry const& b) {
+        if (a.isDirectory != b.isDirectory) return a.isDirectory;
+        return StrCmpLogicalW(a.fileName.c_str(), b.fileName.c_str()) < 0;
+    });
+
+    return entries;
+}
+
+std::wstring ReplaceAll(std::wstring str, std::wstring_view from, std::wstring const& to) {
+    if (from.empty()) return str;
+    size_t pos = str.find(from);
+    while (pos != std::wstring::npos) {
+        str.replace(pos, from.size(), to);
+        pos = str.find(from, pos + to.size());
+    }
+    return str;
+}
+
+std::wstring TwoDigits(int value) {
+    WCHAR buffer[8];
+    swprintf(buffer, ARRAYSIZE(buffer), L"%02d", value);
+    return buffer;
+}
+
+std::wstring ReplaceNameVariables(std::wstring const& fileName, std::wstring const& targetFolder) {
+    SYSTEMTIME time{};
+    GetLocalTime(&time);
+
+    std::wstring parentFolderName;
+    {
+        std::wstring folder = targetFolder;
+        while (!folder.empty() && (folder.back() == L'\\' || folder.back() == L'/')) folder.pop_back();
+        size_t slash = folder.find_last_of(L"\\/");
+        parentFolderName = slash == std::wstring::npos ? folder : folder.substr(slash + 1);
+    }
+
+    std::wstring result = fileName;
+    result = ReplaceAll(result, L"$PARENT_FOLDER_NAME", parentFolderName);
+    result = ReplaceAll(result, L"$YYYY", std::to_wstring(time.wYear));
+    result = ReplaceAll(result, L"$YY", TwoDigits(time.wYear % 100));
+    result = ReplaceAll(result, L"$MM", TwoDigits(time.wMonth));
+    result = ReplaceAll(result, L"$DD", TwoDigits(time.wDay));
+    result = ReplaceAll(result, L"$hh", TwoDigits(time.wHour));
+    result = ReplaceAll(result, L"$mm", TwoDigits(time.wMinute));
+    result = ReplaceAll(result, L"$ss", TwoDigits(time.wSecond));
+    return result;
+}
+
+void SplitFileName(std::wstring const& fileName, bool isDirectory, std::wstring* baseName, std::wstring* extension) {
+    size_t dot = isDirectory ? std::wstring::npos : fileName.find_last_of(L'.');
+    if (dot == std::wstring::npos || dot == 0) {
+        *baseName = fileName;
+        extension->clear();
+        return;
+    }
+    *baseName = fileName.substr(0, dot);
+    *extension = fileName.substr(dot);
+}
+
+std::wstring MakeUniquePath(std::wstring const& targetFolder, std::wstring const& fileName, bool isDirectory) {
+    std::wstring path = JoinPath(targetFolder, fileName);
+    if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return path;
+
+    std::wstring baseName, extension;
+    SplitFileName(fileName, isDirectory, &baseName, &extension);
+
+    for (int i = 2; i < 10000; i++) {
+        std::wstring candidate = baseName + L" (" + std::to_wstring(i) + L")" + extension;
+        path = JoinPath(targetFolder, candidate);
+        if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) return path;
+    }
+    return std::wstring();
+}
+
+bool CopyTemplateItem(std::wstring const& source, std::wstring const& targetFolder, std::wstring const& targetName) {
+    winrt::com_ptr<IFileOperation> operation;
+    if (FAILED(CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(operation.put()))) ||
+        FAILED(operation->SetOperationFlags(FOF_NO_UI))) return false;
+
+    winrt::com_ptr<IShellItem> sourceItem, targetFolderItem;
+    if (FAILED(SHCreateItemFromParsingName(source.c_str(), nullptr, IID_PPV_ARGS(sourceItem.put()))) ||
+        FAILED(SHCreateItemFromParsingName(targetFolder.c_str(), nullptr, IID_PPV_ARGS(targetFolderItem.put()))) ||
+        FAILED(operation->CopyItem(sourceItem.get(), targetFolderItem.get(), targetName.c_str(), nullptr)) ||
+        FAILED(operation->PerformOperations())) return false;
+
+    BOOL aborted = FALSE;
+    return SUCCEEDED(operation->GetAnyOperationsAborted(&aborted)) && !aborted;
+}
+
+void SelectAndRename(winrt::com_ptr<IShellView> const& shellView, std::wstring const& path) {
+    if (!shellView) return;
+    PIDLIST_ABSOLUTE pidl = nullptr;
+    if (FAILED(SHParseDisplayName(path.c_str(), nullptr, &pidl, 0, nullptr)) || !pidl) return;
+
+    PCUITEMID_CHILD child = ILFindLastID(pidl);
+    auto folderView = shellView.try_as<IFolderView>();
+
+    for (int attempt = 0; attempt < 20 && !g_unloading; attempt++) {
+        Sleep(50);
+        HRESULT hr = shellView->SelectItem(child, SVSI_SELECT | SVSI_DESELECTOTHERS | SVSI_ENSUREVISIBLE | SVSI_FOCUSED | SVSI_EDIT);
+        if (FAILED(hr)) continue;
+        if (!folderView) break;
+        int selectedCount = 0;
+        if (SUCCEEDED(folderView->ItemCount(SVGIO_SELECTION, &selectedCount)) && selectedCount > 0) break;
+    }
+
+    CoTaskMemFree(pidl);
+}
+
+void CreateFromTemplateForWindow(HWND hExplorerWnd, TemplateEntry const& entry, bool replaceVariables) {
+    ExplorerContext context = GetExplorerContext(hExplorerWnd);
+    if (context.folderPath.empty()) return;
+
+    std::wstring fileName = replaceVariables ? ReplaceNameVariables(entry.fileName, context.folderPath) : entry.fileName;
+    std::wstring targetPath = MakeUniquePath(context.folderPath, fileName, entry.isDirectory);
+    if (targetPath.empty()) return;
+
+    bool succeeded = CopyTemplateItem(entry.path, context.folderPath, PathFindFileNameW(targetPath.c_str()));
+    if (!succeeded && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES) return;
+    SelectAndRename(context.shellView, targetPath);
+}
+
+#ifndef IO_REPARSE_TAG_APPEXECLINK
+#define IO_REPARSE_TAG_APPEXECLINK (0x8000001BL)
+#endif
+
+std::wstring ResolveAppExecutionAlias(std::wstring const& path) {
+    DWORD attributes = GetFileAttributesW(path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return path;
+
+    HANDLE hFile = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return path;
+
+    struct AppExecLinkReparseBuffer {
+        ULONG reparseTag;
+        USHORT reparseDataLength;
+        USHORT reserved;
+        ULONG version;
+        WCHAR stringList[1];
+    };
+
+    alignas(8) BYTE buffer[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
+    DWORD bytesReturned = 0;
+    BOOL succeeded = DeviceIoControl(hFile, FSCTL_GET_REPARSE_POINT, nullptr, 0, buffer, sizeof(buffer), &bytesReturned, nullptr);
+    CloseHandle(hFile);
+
+    auto* reparse = reinterpret_cast<AppExecLinkReparseBuffer*>(buffer);
+    if (!succeeded || bytesReturned < sizeof(AppExecLinkReparseBuffer) || reparse->reparseTag != IO_REPARSE_TAG_APPEXECLINK) {
+        return path;
+    }
+
+    const WCHAR* p = reparse->stringList;
+    const WCHAR* end = reinterpret_cast<const WCHAR*>(buffer + bytesReturned);
+    for (int i = 0; i < 3 && p < end; i++) {
+        size_t length = wcsnlen(p, end - p);
+        if (p + length >= end) break;
+        if (i == 2) return std::wstring(p, length);
+        p += length + 1;
+    }
+
+    return path;
+}
+
+HICON ExtractCommandIcon(std::wstring const& command) {
+    std::wstring path = ResolveAppExecutionAlias(ResolveCommandPath(command));
+    HICON hIcon = nullptr;
+    if (ExtractIconExW(path.c_str(), 0, &hIcon, nullptr, 1) && hIcon) return hIcon;
+    SHFILEINFOW fileInfo{};
+    if (SHGetFileInfoW(path.c_str(), 0, &fileInfo, sizeof(fileInfo), SHGFI_ICON | SHGFI_LARGEICON)) {
+        return fileInfo.hIcon;
+    }
+    return nullptr;
+}
+
+struct DecodedIcon {
+    int width = 0;
+    int height = 0;
+    std::vector<uint8_t> pixels;
+    bool empty() const { return pixels.empty(); }
+};
+
+bool ReadBitmapPixels(HBITMAP hBitmap, DecodedIcon* decoded) {
+    BITMAP bm{};
+    if (!GetObject(hBitmap, sizeof(bm), &bm) || bm.bmWidth <= 0 || bm.bmHeight <= 0) return false;
+
+    int width = bm.bmWidth;
+    int height = bm.bmHeight;
+
+    BITMAPINFO bmi{};
+    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = -height;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    std::vector<uint8_t> pixels((size_t)width * height * 4);
+    HDC hdc = CreateCompatibleDC(nullptr);
+    if (!hdc) return false;
+
+    bool succeeded = GetDIBits(hdc, hBitmap, 0, height, pixels.data(), &bmi, DIB_RGB_COLORS) != 0;
+    DeleteDC(hdc);
+
+    if (!succeeded) return false;
+    decoded->width = width;
+    decoded->height = height;
+    decoded->pixels = std::move(pixels);
+    return true;
+}
+
+bool HasNoAlphaChannel(std::vector<uint8_t> const& pixels) {
+    for (size_t p = 3; p < pixels.size(); p += 4) {
+        if (pixels[p]) return false;
+    }
+    return true;
+}
+
+void MakeOpaque(std::vector<uint8_t>& pixels) {
+    for (size_t p = 3; p < pixels.size(); p += 4) pixels[p] = 255;
+}
+
+bool DecodeMonochromeIcon(HBITMAP hbmMask, DecodedIcon* decoded) {
+    DecodedIcon mask;
+    if (!ReadBitmapPixels(hbmMask, &mask) || mask.height % 2 != 0) return false;
+
+    int width = mask.width;
+    int height = mask.height / 2;
+
+    DecodedIcon result;
+    result.width = width;
+    result.height = height;
+    result.pixels.assign((size_t)width * height * 4, 0);
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            size_t andIndex = ((size_t)y * width + x) * 4;
+            size_t xorIndex = ((size_t)(y + height) * width + x) * 4;
+            if (mask.pixels[andIndex]) continue;
+            uint8_t value = mask.pixels[xorIndex] ? 255 : 0;
+            result.pixels[andIndex + 0] = value;
+            result.pixels[andIndex + 1] = value;
+            result.pixels[andIndex + 2] = value;
+            result.pixels[andIndex + 3] = 255;
         }
+    }
 
-        IShellView* psv = GetActiveShellView(rootHwnd, capturedFocus);
-        std::wstring activeDir = GetActiveFolderPath(psv);
-        std::vector<std::wstring> allSelected = GetSelectedPaths(psv);
-        if (psv) {
-            psv->Release();
-        }
+    *decoded = std::move(result);
+    return true;
+}
 
-        std::vector<std::wstring> filesOnly;
-        std::vector<std::wstring> foldersOnly;
-        for (const auto& item : allSelected) {
-            DWORD attr = GetFileAttributesW(item.c_str());
-            if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
-                foldersOnly.push_back(item);
+bool DecodeIcon(HICON hIcon, DecodedIcon* decoded) {
+    ICONINFO iconInfo{};
+    if (!GetIconInfo(hIcon, &iconInfo)) return false;
+
+    bool succeeded = false;
+    if (iconInfo.hbmColor) {
+        if (ReadBitmapPixels(iconInfo.hbmColor, decoded)) {
+            if (HasNoAlphaChannel(decoded->pixels)) {
+                MakeOpaque(decoded->pixels);
             } else {
-                filesOnly.push_back(item);
+                for (size_t p = 0; p < decoded->pixels.size(); p += 4) {
+                    uint8_t alpha = decoded->pixels[p + 3];
+                    if (alpha != 255) {
+                        decoded->pixels[p] = decoded->pixels[p] * alpha / 255;
+                        decoded->pixels[p + 1] = decoded->pixels[p + 1] * alpha / 255;
+                        decoded->pixels[p + 2] = decoded->pixels[p + 2] * alpha / 255;
+                    }
+                }
+            }
+            succeeded = true;
+        }
+    } else if (iconInfo.hbmMask) {
+        succeeded = DecodeMonochromeIcon(iconInfo.hbmMask, decoded);
+    }
+
+    if (iconInfo.hbmColor) DeleteObject(iconInfo.hbmColor);
+    if (iconInfo.hbmMask) DeleteObject(iconInfo.hbmMask);
+    return succeeded;
+}
+
+muxm::ImageSource CreateImageSource(DecodedIcon const& decoded) try {
+    if (decoded.empty()) return nullptr;
+    muxm::Imaging::WriteableBitmap bitmap(decoded.width, decoded.height);
+    memcpy(bitmap.PixelBuffer().data(), decoded.pixels.data(), decoded.pixels.size());
+    bitmap.Invalidate();
+    return bitmap;
+} catch (...) {
+    return nullptr;
+}
+
+std::wstring ParseGlyphSetting(PCWSTR glyphSetting) {
+    if (!glyphSetting[0]) return std::wstring();
+    if (!glyphSetting[1]) return std::wstring(1, glyphSetting[0]);
+    for (PCWSTR p = glyphSetting; *p; p++) {
+        if (!iswxdigit(*p)) return std::wstring();
+    }
+    unsigned long parsed = wcstoul(glyphSetting, nullptr, 16);
+    if (parsed > 0 && parsed <= 0xFFFF) return std::wstring(1, (WCHAR)parsed);
+    return std::wstring();
+}
+
+bool LooksLikeIconPath(std::wstring const& iconSetting) {
+    if (iconSetting.find(L'\\') != std::wstring::npos ||
+        iconSetting.find(L'/') != std::wstring::npos ||
+        iconSetting.find(L':') != std::wstring::npos) return true;
+
+    std::wstring lower = ToLower(iconSetting);
+    size_t comma = lower.rfind(L',');
+    if (comma != std::wstring::npos) lower.resize(comma);
+
+    return lower.ends_with(L".exe") || lower.ends_with(L".dll") || lower.ends_with(L".ico");
+}
+
+HICON LoadIconFromPath(std::wstring const& iconPath) {
+    std::wstring expanded = ExpandEnvVars(iconPath);
+    int iconIndex = 0;
+    size_t comma = expanded.rfind(L',');
+    if (comma != std::wstring::npos && comma + 1 < expanded.size()) {
+        bool isNumber = true;
+        for (size_t i = comma + 1; i < expanded.size(); i++) {
+            WCHAR c = expanded[i];
+            if ((c < L'0' || c > L'9') && !(i == comma + 1 && c == L'-')) {
+                isNumber = false;
+                break;
             }
         }
-
-        std::vector<std::wstring> commands;
-        if (sc.launchMode == L"loop_files") {
-            for (const auto& file : filesOnly) {
-                std::vector<std::wstring> cur = { file };
-                commands.push_back(ExpandTokens(sc.argsPattern, activeDir, cur, cur, {}));
-            }
-        } else if (sc.launchMode == L"loop_folders") {
-            for (const auto& folder : foldersOnly) {
-                std::vector<std::wstring> cur = { folder };
-                commands.push_back(ExpandTokens(sc.argsPattern, folder, cur, {}, cur));
-            }
-        } else {
-            commands.push_back(ExpandTokens(sc.argsPattern, activeDir, allSelected, filesOnly, foldersOnly));
+        if (isNumber) {
+            iconIndex = _wtoi(expanded.c_str() + comma + 1);
+            expanded.resize(comma);
         }
+    }
 
-        for (const auto& cmdArgs : commands) {
-            if (g_unloading.load()) break;
-            ExecuteApp(sc.path, cmdArgs, activeDir);
+    expanded = ResolveAppExecutionAlias(expanded);
+    HICON hIcon = nullptr;
+    if (ExtractIconExW(expanded.c_str(), iconIndex, &hIcon, nullptr, 1) && hIcon) return hIcon;
+
+    SHFILEINFOW fileInfo{};
+    if (SHGetFileInfoW(expanded.c_str(), 0, &fileInfo, sizeof(fileInfo), SHGFI_ICON | SHGFI_LARGEICON)) {
+        return fileInfo.hIcon;
+    }
+    return nullptr;
+}
+
+bool IsShellPath(std::wstring const& s) {
+    return s.size() >= 6 && _wcsnicmp(s.c_str(), L"shell:", 6) == 0;
+}
+
+bool DecodeShellPathIcon(std::wstring const& path, DecodedIcon* decoded) {
+    std::wstring expanded = ExpandEnvVars(path);
+    PIDLIST_ABSOLUTE pidl = nullptr;
+    if (FAILED(SHParseDisplayName(expanded.c_str(), nullptr, &pidl, 0, nullptr)) || !pidl) return false;
+
+    winrt::com_ptr<IShellItemImageFactory> factory;
+    HRESULT hr = SHCreateItemFromIDList(pidl, IID_PPV_ARGS(factory.put()));
+    CoTaskMemFree(pidl);
+    if (FAILED(hr) || !factory) return false;
+
+    SIZE size = {32, 32};
+    HBITMAP hBitmap = nullptr;
+    hr = factory->GetImage(size, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK, &hBitmap);
+    if (FAILED(hr) || !hBitmap) return false;
+
+    bool succeeded = ReadBitmapPixels(hBitmap, decoded);
+    DeleteObject(hBitmap);
+    if (succeeded && HasNoAlphaChannel(decoded->pixels)) MakeOpaque(decoded->pixels);
+    return succeeded;
+}
+
+std::shared_ptr<DecodedIcon> ResolveIcon(std::wstring const& iconSetting, std::wstring const& command) {
+    auto decoded = std::make_shared<DecodedIcon>();
+    bool isPath = !iconSetting.empty() && LooksLikeIconPath(iconSetting);
+    if (isPath && IsShellPath(iconSetting)) {
+        DecodeShellPathIcon(iconSetting, decoded.get());
+        return decoded;
+    }
+
+    HICON hIcon = nullptr;
+    if (isPath) {
+        hIcon = LoadIconFromPath(iconSetting);
+    } else if (iconSetting.empty() && !command.empty()) {
+        hIcon = ExtractCommandIcon(command);
+    }
+
+    if (hIcon) {
+        DecodeIcon(hIcon, decoded.get());
+        DestroyIcon(hIcon);
+    }
+    return decoded;
+}
+
+std::mutex g_iconCacheMutex;
+std::unordered_map<std::wstring, std::shared_ptr<DecodedIcon>> g_iconCache;
+
+std::shared_ptr<DecodedIcon> GetIcon(std::wstring const& iconSetting, std::wstring const& command) {
+    std::wstring key = iconSetting + L'\n' + command;
+    {
+        std::lock_guard<std::mutex> lock(g_iconCacheMutex);
+        auto it = g_iconCache.find(key);
+        if (it != g_iconCache.end()) return it->second;
+    }
+
+    auto decoded = ResolveIcon(iconSetting, command);
+    std::lock_guard<std::mutex> lock(g_iconCacheMutex);
+    return g_iconCache.insert_or_assign(std::move(key), std::move(decoded)).first->second;
+}
+
+muxc::IconElement CreateGlyphIcon(PCWSTR glyph) {
+    muxc::FontIcon fontIcon;
+    fontIcon.FontFamily(muxm::FontFamily(L"Segoe Fluent Icons"));
+    fontIcon.Glyph(glyph);
+    return fontIcon;
+}
+
+muxc::IconElement TryCreateIconElement(std::wstring const& iconSetting, std::wstring const& command) {
+    bool isPath = !iconSetting.empty() && LooksLikeIconPath(iconSetting);
+    if (isPath || iconSetting.empty()) {
+        if (auto source = CreateImageSource(*GetIcon(iconSetting, command))) {
+            muxc::ImageIcon imageIcon;
+            imageIcon.Source(source);
+            return imageIcon;
+        }
+    }
+
+    std::wstring glyph;
+    if (!isPath) glyph = ParseGlyphSetting(iconSetting.c_str());
+    if (glyph.empty()) return nullptr;
+    return CreateGlyphIcon(glyph.c_str());
+}
+
+muxc::IconElement CreateIconElement(std::wstring const& iconSetting, std::wstring const& command, PCWSTR defaultGlyph) {
+    if (auto icon = TryCreateIconElement(iconSetting, command)) return icon;
+    return CreateGlyphIcon(defaultGlyph);
+}
+
+muxc::IconElement MakeCommandButtonIcon(ActionItem const& item) {
+    if (item.hideIcon) return nullptr;
+    return CreateIconElement(item.icon, item.command, L"");
+}
+
+muxc::IconElement MakeNewPlusButtonIcon(std::wstring const& iconSetting, std::wstring const& originalIconUri) {
+    if (iconSetting.empty() && !originalIconUri.empty()) {
+        try {
+            muxm::Imaging::SvgImageSource svgSource(wf::Uri(winrt::hstring{originalIconUri}));
+            muxc::ImageIcon imageIcon;
+            imageIcon.Source(svgSource);
+            return imageIcon;
+        } catch (...) {
+        }
+    }
+    return CreateIconElement(iconSetting, std::wstring(), L"");
+}
+
+muxm::ImageSource LoadShellItemIcon(std::wstring const& path) {
+    DecodedIcon decoded;
+    if (!DecodeShellPathIcon(path, &decoded)) return nullptr;
+    return CreateImageSource(decoded);
+}
+
+bool IsOurNewPlusButton(muxc::ICommandBarElement const& command) {
+    auto element = command.try_as<mux::FrameworkElement>();
+    return element && element.Name() == kNewPlusButtonName;
+}
+
+bool IsOurElement(muxc::ICommandBarElement const& command) {
+    auto element = command.try_as<mux::FrameworkElement>();
+    if (!element) return false;
+    std::wstring_view name{element.Name()};
+    return name.starts_with(kButtonNamePrefix) || name == kNewPlusButtonName || name == kContextMenuButtonName;
+}
+
+bool HasElement(muxc::CommandBar const& commandBar, bool (*predicate)(muxc::ICommandBarElement const&)) {
+    for (auto const& command : commandBar.PrimaryCommands()) {
+        if (predicate(command)) return true;
+    }
+    return false;
+}
+
+std::wstring GetButtonIconUri(muxc::AppBarButton const& button) try {
+    auto icon = button.Icon();
+    if (!icon) return std::wstring();
+
+    wf::Uri uri{nullptr};
+    if (auto imageIcon = icon.try_as<muxc::ImageIcon>()) {
+        if (auto source = imageIcon.Source()) {
+            if (auto svgSource = source.try_as<muxm::Imaging::SvgImageSource>()) {
+                uri = svgSource.UriSource();
+            }
+        }
+    } else if (auto iconSourceElement = icon.try_as<muxc::IconSourceElement>()) {
+        if (auto iconSource = iconSourceElement.IconSource()) {
+            if (auto imageIconSource = iconSource.try_as<muxc::ImageIconSource>()) {
+                if (auto source = imageIconSource.ImageSource()) {
+                    if (auto svgSource = source.try_as<muxm::Imaging::SvgImageSource>()) {
+                        uri = svgSource.UriSource();
+                    }
+                }
+            }
+        }
+    } else if (auto bitmapIcon = icon.try_as<muxc::BitmapIcon>()) {
+        uri = bitmapIcon.UriSource();
+    }
+
+    if (!uri) return std::wstring();
+    return std::wstring{uri.AbsoluteUri()};
+} catch (...) {
+    return std::wstring();
+}
+
+int IdentifyDefaultButton(muxc::AppBarButton const& button) {
+    std::wstring uri = ToLower(GetButtonIconUri(button));
+    if (!uri.empty()) {
+        size_t slash = uri.find_last_of(L'/');
+        std::wstring_view fileName = slash == std::wstring::npos ? std::wstring_view(uri) : std::wstring_view(uri).substr(slash + 1);
+        if (fileName.starts_with(L"windows.iconsize.")) return kViewButtonIndex;
+
+        for (int i = 0; i < kDefaultButtonCount; i++) {
+            if (fileName == kDefaultButtons[i].svgFileName) return i;
+        }
+    }
+
+    try {
+        if (mux::Automation::AutomationProperties::GetAutomationId(button) == L"SortAndGroupButton") {
+            return kSortButtonIndex;
+        }
+    } catch (...) {
+    }
+
+    return -1;
+}
+
+std::wstring GetAutomationId(mux::FrameworkElement const& element) {
+    try {
+        return std::wstring{mux::Automation::AutomationProperties::GetAutomationId(element)};
+    } catch (...) {
+        return std::wstring();
+    }
+}
+
+enum class ManagedKind {
+    Button,
+    SeparatorAfter,
+    GroupSeparator,
+    DetailsToggle,
+    OverflowElement,
+};
+
+struct GroupMember {
+    winrt::weak_ref<mux::UIElement> element;
+    int defaultButtonIndex;
+};
+
+struct ManagedTarget {
+    ManagedKind kind;
+    int index = 0;
+    bool newPlusPresent = false;
+    std::shared_ptr<std::vector<GroupMember>> group;
+};
+
+bool ShouldHide(ManagedTarget const& target);
+
+mux::Visibility EffectiveVisibility(mux::UIElement const& element) {
+    auto* entry = FindManagedElement(element);
+    if (entry && entry->hasOriginalVisibility) return entry->originalVisibility;
+    return element.Visibility();
+}
+
+bool IsGroupHidden(std::shared_ptr<std::vector<GroupMember>> const& group) {
+    if (!group || group->empty()) return false;
+    for (auto const& member : *group) {
+        auto element = member.element.get();
+        if (!element) continue;
+        if (member.defaultButtonIndex >= 0 && ShouldHide({ManagedKind::Button, member.defaultButtonIndex})) continue;
+        if (EffectiveVisibility(element) == mux::Visibility::Collapsed) continue;
+        return false;
+    }
+    return true;
+}
+
+bool ShouldHide(ManagedTarget const& target) {
+    if (target.kind == ManagedKind::GroupSeparator) return IsGroupHidden(target.group);
+
+    std::lock_guard<std::mutex> lock(g_settings.mutex);
+    switch (target.kind) {
+        case ManagedKind::Button:
+            if (target.index == kNewButtonIndex && target.newPlusPresent && g_settings.newPlus.enabled && !g_settings.newPlus.keepOriginalNewButton) {
+                return true;
+            }
+            return g_settings.hideDefaultButtons[target.index];
+        case ManagedKind::SeparatorAfter:
+            return g_settings.hideSeparatorAfterButton[target.index];
+        case ManagedKind::DetailsToggle:
+            return g_settings.hideDetailsButton;
+        case ManagedKind::OverflowElement:
+            return g_settings.hideMoreButton;
+        case ManagedKind::GroupSeparator:
+            break;
+    }
+    return false;
+}
+
+thread_local int g_settingVisibilityDepth;
+
+void SetVisibilityInternal(mux::UIElement const& element, mux::Visibility visibility) {
+    g_settingVisibilityDepth++;
+    try {
+        element.Visibility(visibility);
+    } catch (...) {
+    }
+    g_settingVisibilityDepth--;
+}
+
+void ApplyDefaultButtonVisibility(muxc::CommandBar const& commandBar, bool forceShow = false);
+void UpdateCommandBar(muxc::CommandBar const& commandBar);
+
+thread_local std::unordered_map<void*, bool> g_pendingUpdates;
+
+void QueueCommandBarUpdate(winrt::weak_ref<muxc::CommandBar> const& weakCommandBar, bool fullUpdate) {
+    auto commandBar = weakCommandBar.get();
+    if (!commandBar) return;
+
+    void* key = winrt::get_abi(commandBar);
+    auto [it, inserted] = g_pendingUpdates.insert({key, fullUpdate});
+    if (!inserted) {
+        it->second = it->second || fullUpdate;
+        return;
+    }
+
+    auto takePending = [key]() {
+        bool full = false;
+        auto it = g_pendingUpdates.find(key);
+        if (it != g_pendingUpdates.end()) {
+            full = it->second;
+            g_pendingUpdates.erase(it);
+        }
+        return full;
+    };
+
+    auto dispatcherQueue = winrt::Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
+    if (!dispatcherQueue) {
+        takePending();
+        return;
+    }
+
+    dispatcherQueue.TryEnqueue([weakCommandBar, takePending]() {
+        bool full = takePending();
+        if (g_unloading) return;
+        if (auto commandBar = weakCommandBar.get()) {
+            try {
+                if (full) UpdateCommandBar(commandBar);
+                else ApplyDefaultButtonVisibility(commandBar);
+            } catch (...) {
+            }
         }
     });
 }
 
-bool IsInlineEditingActive(HWND rootHwnd) {
-    HWND hFocus = GetFocus();
-    if (!hFocus) return false;
-
-    HWND hFocusRoot = GetAncestor(hFocus, GA_ROOT);
-    if (hFocusRoot && hFocusRoot != rootHwnd) {
-        if (GetWindow(hFocusRoot, GW_OWNER) == rootHwnd) {
-            return true;
-        }
-    }
-
-    WCHAR cls[128] = {};
-    if (GetClassNameW(hFocus, cls, ARRAYSIZE(cls))) {
-        if (wcscmp(cls, L"Edit") == 0 ||
-            wcscmp(cls, L"RichEditD2DPT") == 0 ||
-            wcsstr(cls, L"TextBox") != nullptr) {
-            return true;
-        }
-    }
-
-    for (HWND h = hFocus; h && h != rootHwnd; h = GetParent(h)) {
-        WCHAR parentCls[128] = {};
-        if (GetClassNameW(h, parentCls, ARRAYSIZE(parentCls))) {
-            if (wcsstr(parentCls, L"Address Band Root") ||
-                wcsstr(parentCls, L"ComboBoxEx32") ||
-                wcsstr(parentCls, L"SearchEditBoxWrapperClass")) {
-                return true;
-            }
-        }
-    }
-
-    GUITHREADINFO gti = { sizeof(gti) };
-    if (GetGUIThreadInfo(GetWindowThreadProcessId(hFocus, nullptr), &gti)) {
-        if (gti.hwndCaret && (gti.hwndCaret == hFocus || IsChild(hFocus, gti.hwndCaret))) {
-            return true;
-        }
-    }
-
-    return false;
+void QueueVisibilityRecompute(winrt::weak_ref<muxc::CommandBar> const& weakCommandBar) {
+    QueueCommandBarUpdate(weakCommandBar, false);
 }
 
-bool ProcessHotKey(HWND hwnd, WPARAM key) {
-    if (!hwnd) return false;
+void WatchVisibility(mux::UIElement const& element, ManagedTarget const& target, winrt::weak_ref<muxc::CommandBar> const& owner) {
+    int64_t token = element.RegisterPropertyChangedCallback(
+        mux::UIElement::VisibilityProperty(),
+        [target, owner](mux::DependencyObject const& sender, mux::DependencyProperty const&) {
+            if (g_unloading || g_settingVisibilityDepth > 0) return;
+            auto element = sender.try_as<mux::UIElement>();
+            if (!element) return;
 
-    HWND rootHwnd = GetAncestor(hwnd, GA_ROOT);
-    if (!rootHwnd) return false;
+            mux::Visibility visibility = element.Visibility();
+            {
+                auto& entry = GetManagedElement(element);
+                entry.originalVisibility = visibility;
+                entry.hasOriginalVisibility = true;
+            }
 
-    WCHAR className[256] = {};
-    if (!GetClassNameW(rootHwnd, className, ARRAYSIZE(className))) {
-        return false;
+            if (target.kind != ManagedKind::GroupSeparator && visibility != mux::Visibility::Collapsed && ShouldHide(target)) {
+                SetVisibilityInternal(element, mux::Visibility::Collapsed);
+            }
+            QueueVisibilityRecompute(owner);
+        });
+
+    auto& entry = GetManagedElement(element);
+    entry.watched = true;
+    entry.visibilityToken = token;
+}
+
+void UnwatchVisibilityForCurrentThread() {
+    for (auto& entry : g_managedElements) {
+        if (!entry.watched) continue;
+        auto element = entry.element.get();
+        int64_t token = entry.visibilityToken;
+        entry.watched = false;
+        entry.visibilityToken = 0;
+        if (!element) continue;
+        try {
+            element.UnregisterPropertyChangedCallback(mux::UIElement::VisibilityProperty(), token);
+        } catch (...) {
+        }
     }
-    
-    if (wcscmp(className, L"CabinetWClass") == 0 || wcscmp(className, L"ExploreWClass") == 0) {
-        std::shared_lock<std::shared_mutex> lock(g_shortcutsMutex);
-        if (g_shortcuts.empty()) return false;
+}
 
-        bool ctrl  = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-        bool shift = (GetKeyState(VK_SHIFT)   & 0x8000) != 0;
-        bool alt   = (GetKeyState(VK_MENU)    & 0x8000) != 0;
+void ForgetManagedElementsForCurrentThread() {
+    g_managedElements.clear();
+}
 
-        for (const auto& sc : g_shortcuts) {
-            if (sc.vkCode != 0 && key == (WPARAM)sc.vkCode &&
-                ctrl == sc.ctrl && shift == sc.shift && alt == sc.alt) {
-                
-                if (IsInlineEditingActive(rootHwnd)) {
-                    return false;
+void SetManagedVisibility(mux::UIElement const& element, ManagedTarget const& target, bool forceShow, winrt::weak_ref<muxc::CommandBar> const& owner) {
+    mux::Visibility original;
+    bool watch;
+    {
+        auto& entry = GetManagedElement(element);
+        if (!entry.hasOriginalVisibility) {
+            entry.originalVisibility = element.Visibility();
+            entry.hasOriginalVisibility = true;
+        }
+        original = entry.originalVisibility;
+        watch = !forceShow && !entry.watched;
+    }
+
+    if (watch) WatchVisibility(element, target, owner);
+    SetVisibilityInternal(element, !forceShow && ShouldHide(target) ? mux::Visibility::Collapsed : original);
+}
+
+void ApplyItemSpacing(muxc::AppBarButton const& button, int spacing, bool reset) {
+    mux::Thickness originalMargin;
+    double originalMinWidth;
+    {
+        auto& entry = GetManagedElement(button);
+        if (!entry.hasOriginalSpacing) {
+            entry.originalMargin = button.Margin();
+            entry.originalMinWidth = button.MinWidth();
+            entry.hasOriginalSpacing = true;
+        }
+        originalMargin = entry.originalMargin;
+        originalMinWidth = entry.originalMinWidth;
+    }
+
+    if (reset || spacing < 0) {
+        button.Margin(originalMargin);
+        button.MinWidth(originalMinWidth);
+        return;
+    }
+
+    double half = spacing / 2.0;
+    mux::Thickness margin = originalMargin;
+    margin.Left = half;
+    margin.Right = half;
+    button.Margin(margin);
+    button.MinWidth(0);
+}
+
+mux::FrameworkElement FindDescendantByName(mux::DependencyObject const& root, std::wstring_view name) {
+    int count = muxm::VisualTreeHelper::GetChildrenCount(root);
+    for (int i = 0; i < count; i++) {
+        auto child = muxm::VisualTreeHelper::GetChild(root, i);
+        if (auto element = child.try_as<mux::FrameworkElement>(); element && element.Name() == name) {
+            return element;
+        }
+        if (auto found = FindDescendantByName(child, name)) return found;
+    }
+    return nullptr;
+}
+
+void ApplyDefaultButtonVisibility(muxc::CommandBar const& commandBar, bool forceShow) {
+    bool hideMore;
+    int itemSpacing;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        hideMore = g_settings.hideMoreButton;
+        itemSpacing = g_settings.itemSpacing;
+    }
+
+    bool isPrimary = commandBar.Name() == L"FileExplorerCommandBar";
+    auto weakCommandBar = winrt::make_weak(commandBar);
+    auto setVisibility = [&weakCommandBar, forceShow](mux::UIElement const& element, ManagedTarget const& target) {
+        SetManagedVisibility(element, target, forceShow, weakCommandBar);
+    };
+
+    auto commands = commandBar.PrimaryCommands();
+    uint32_t count = commands.Size();
+
+    struct Entry {
+        muxc::ICommandBarElement command;
+        bool isOurs = false;
+        bool isNewPlus = false;
+        bool isSeparator = false;
+        bool isDetailsToggle = false;
+        int defaultIndex = -1;
+    };
+
+    std::vector<Entry> entries;
+    entries.reserve(count);
+
+    for (uint32_t i = 0; i < count; i++) {
+        Entry entry;
+        entry.command = commands.GetAt(i);
+        entry.isOurs = IsOurElement(entry.command);
+        entry.isNewPlus = entry.isOurs && IsOurNewPlusButton(entry.command);
+        entry.isSeparator = !entry.isOurs && static_cast<bool>(entry.command.try_as<muxc::AppBarSeparator>());
+
+        if (!entry.isOurs && !entry.isSeparator) {
+            if (auto button = entry.command.try_as<muxc::AppBarButton>()) {
+                if (GetAutomationId(button) == L"DetailsPaneToggleButton") {
+                    entry.isDetailsToggle = true;
+                } else {
+                    entry.defaultIndex = IdentifyDefaultButton(button);
                 }
+            }
+        }
+        entries.push_back(std::move(entry));
+    }
 
-                HWND capturedFocus = GetFocus();
-                DispatchShortcutExecution(sc, rootHwnd, capturedFocus);
-                return true;
+    uint32_t firstCustomIndex = count;
+    bool hasNewPlusButton = false;
+    for (uint32_t i = 0; i < count; i++) {
+        if (entries[i].isNewPlus) hasNewPlusButton = true;
+        else if (entries[i].isOurs && firstCustomIndex == count) firstCustomIndex = i;
+    }
+
+    uint32_t viewSeparatorIndex = count;
+    if (firstCustomIndex > 0 && firstCustomIndex < count && entries[firstCustomIndex - 1].isSeparator) {
+        viewSeparatorIndex = firstCustomIndex - 1;
+    } else {
+        for (uint32_t i = count; i > 0; i--) {
+            if (entries[i - 1].isSeparator) {
+                viewSeparatorIndex = i - 1;
+                break;
             }
         }
     }
-    return false;
+
+    auto collectGroup = [&entries, count](uint32_t separatorIndex) {
+        auto group = std::make_shared<std::vector<GroupMember>>();
+        for (uint32_t i = separatorIndex + 1; i < count; i++) {
+            auto const& entry = entries[i];
+            if (entry.isNewPlus) continue;
+            if (entry.isSeparator || entry.isOurs) break;
+            if (auto element = entry.command.try_as<mux::UIElement>()) {
+                group->push_back({winrt::make_weak(element), entry.defaultIndex});
+            }
+        }
+        return group;
+    };
+
+    int prevIndex = -1;
+    for (uint32_t i = 0; i < count; i++) {
+        auto const& entry = entries[i];
+        if (entry.isOurs) {
+            if (auto button = entry.command.try_as<muxc::AppBarButton>()) {
+                ApplyItemSpacing(button, itemSpacing, forceShow);
+            }
+            prevIndex = -1;
+            continue;
+        }
+
+        if (entry.isSeparator) {
+            auto separator = entry.command.as<muxc::AppBarSeparator>();
+            int target = -1;
+            if (prevIndex == kNewButtonIndex) target = kNewButtonIndex;
+            else if (prevIndex == kDeleteButtonIndex) target = kDeleteButtonIndex;
+            else if (i == viewSeparatorIndex) target = kViewButtonIndex;
+
+            if (target >= 0) {
+                setVisibility(separator, {ManagedKind::SeparatorAfter, target});
+            } else {
+                setVisibility(separator, {ManagedKind::GroupSeparator, -1, false, collectGroup(i)});
+            }
+            prevIndex = -1;
+            continue;
+        }
+
+        if (entry.isDetailsToggle) {
+            setVisibility(entry.command.as<mux::UIElement>(), {ManagedKind::DetailsToggle});
+            prevIndex = -1;
+            continue;
+        }
+
+        if (entry.defaultIndex >= 0) {
+            auto button = entry.command.as<muxc::AppBarButton>();
+            setVisibility(button, {ManagedKind::Button, entry.defaultIndex, hasNewPlusButton});
+            ApplyItemSpacing(button, itemSpacing, forceShow);
+        }
+
+        prevIndex = entry.defaultIndex;
+    }
+
+    if (isPrimary) {
+        muxc::CommandBarOverflowButtonVisibility originalOverflow;
+        {
+            auto& entry = GetManagedElement(commandBar);
+            if (!entry.hasOriginalOverflow) {
+                entry.originalOverflow = commandBar.OverflowButtonVisibility();
+                entry.hasOriginalOverflow = true;
+            }
+            originalOverflow = entry.originalOverflow;
+        }
+
+        commandBar.OverflowButtonVisibility(!forceShow && hideMore ? muxc::CommandBarOverflowButtonVisibility::Collapsed : originalOverflow);
+        if (auto overflowSeparator = FindDescendantByName(commandBar, L"OverflowSeparator")) {
+            setVisibility(overflowSeparator, {ManagedKind::OverflowElement});
+        }
+    }
 }
 
-using TranslateAcceleratorW_t = int (WINAPI*)(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg);
-TranslateAcceleratorW_t TranslateAcceleratorW_Original;
+muxc::AppBarButton CreateBareButton(int index, std::wstring const& tooltip, std::wstring const& labelText,
+                                    muxc::IconElement const& icon, bool showLabel = false) {
+    std::wstring name = kButtonNamePrefix;
+    name += L'_';
+    name += std::to_wstring(index);
 
-int WINAPI TranslateAcceleratorW_Hook(HWND hWnd, HACCEL hAccTable, LPMSG lpMsg) {
-    if (lpMsg && (lpMsg->message == WM_KEYDOWN || lpMsg->message == WM_SYSKEYDOWN)) {
-        if (!(lpMsg->lParam & 0x40000000)) {
-            if (ProcessHotKey(lpMsg->hwnd, lpMsg->wParam)) {
-                return 1;
-            }
+    muxc::AppBarButton button;
+    button.Name(name.c_str());
+    
+    std::wstring displayLabel = labelText.empty() ? tooltip : labelText;
+    button.Label(displayLabel.c_str());
+    button.LabelPosition(showLabel ? muxc::CommandBarLabelPosition::Default : muxc::CommandBarLabelPosition::Collapsed);
+    button.Icon(icon);
+
+    if (!tooltip.empty()) {
+        muxc::ToolTipService::SetToolTip(button, winrt::box_value(winrt::hstring{tooltip}));
+    }
+
+    return button;
+}
+
+muxc::AppBarButton CreateActionButton(ActionItem const& item, int index) {
+    muxc::AppBarButton button = CreateBareButton(index, item.name, item.labelText, MakeCommandButtonIcon(item), item.showLabel);
+
+    TrackRevoker(button, button.Click(winrt::auto_revoke, [item](wf::IInspectable const& sender, mux::RoutedEventArgs const&) {
+        if (auto element = sender.try_as<mux::FrameworkElement>()) {
+            OnActionInvoked(element, item);
+        }
+    }));
+
+    return button;
+}
+
+
+void AppendMenuEntries(std::vector<ActionItem> const& items, wfc::IVector<muxc::MenuFlyoutItemBase> const& target,
+                       winrt::weak_ref<muxc::AppBarButton> const& weakButton);
+
+muxc::MenuFlyoutItemBase CreateMenuEntry(ActionItem const& item, winrt::weak_ref<muxc::AppBarButton> const& weakButton) {
+    if (item.isMenu && !item.subItems.empty()) {
+        muxc::MenuFlyoutSubItem subMenu;
+        subMenu.Text(item.name.c_str());
+        if (!item.hideIcon) {
+            if (auto icon = TryCreateIconElement(item.icon, item.command)) subMenu.Icon(icon);
+        }
+        AppendMenuEntries(item.subItems, subMenu.Items(), weakButton);
+        return subMenu;
+    }
+
+    muxc::MenuFlyoutItem menuItem;
+    menuItem.Text(item.name.c_str());
+    if (!item.hideIcon) {
+        if (auto icon = TryCreateIconElement(item.icon, item.command)) menuItem.Icon(icon);
+    }
+
+    TrackRevoker(menuItem, menuItem.Click(winrt::auto_revoke, [item, weakButton](wf::IInspectable const&, mux::RoutedEventArgs const&) {
+        if (auto button = weakButton.get()) OnActionInvoked(button, item);
+    }));
+
+    return menuItem;
+}
+void AppendMenuEntries(std::vector<ActionItem> const& items, wfc::IVector<muxc::MenuFlyoutItemBase> const& target,
+                       winrt::weak_ref<muxc::AppBarButton> const& weakButton) {
+    for (auto const& item : items) {
+        target.Append(CreateMenuEntry(item, weakButton));
+        if (item.separatorAfter) target.Append(muxc::MenuFlyoutSeparator());
+    }
+}
+
+struct HoverTimerEntry {
+    winrt::weak_ref<muxc::AppBarButton> button;
+    mux::DispatcherTimer timer;
+    winrt::event_token tickToken;
+};
+
+thread_local std::vector<HoverTimerEntry> g_hoverTimers;
+
+void ReleaseHoverTimer(HoverTimerEntry const& entry) {
+    try {
+        entry.timer.Stop();
+        entry.timer.Tick(entry.tickToken);
+    } catch (...) {
+    }
+}
+
+void TrackHoverTimer(muxc::AppBarButton const& button, mux::DispatcherTimer const& timer, winrt::event_token tickToken) {
+    for (auto it = g_hoverTimers.begin(); it != g_hoverTimers.end();) {
+        if (!it->button.get()) {
+            ReleaseHoverTimer(*it);
+            it = g_hoverTimers.erase(it);
+        } else {
+            ++it;
         }
     }
-    return TranslateAcceleratorW_Original(hWnd, hAccTable, lpMsg);
+    g_hoverTimers.push_back({winrt::make_weak(button), timer, tickToken});
+}
+
+void StopHoverTimersForCurrentThread() {
+    std::vector<HoverTimerEntry> taken;
+    taken.swap(g_hoverTimers);
+    for (auto const& entry : taken) ReleaseHoverTimer(entry);
+}
+
+void SetUpOpenOnHover(muxc::AppBarButton const& button, int hoverDelayMs, std::function<void()> const& open) {
+    if (hoverDelayMs <= 0) {
+        TrackRevoker(button, button.PointerEntered(winrt::auto_revoke, [open](wf::IInspectable const&, mux::Input::PointerRoutedEventArgs const&) {
+            open();
+        }));
+        return;
+    }
+
+    mux::DispatcherTimer timer;
+    timer.Interval(std::chrono::milliseconds(hoverDelayMs));
+
+    auto tickToken = timer.Tick([open](wf::IInspectable const& sender, wf::IInspectable const&) {
+        if (auto timer = sender.try_as<mux::DispatcherTimer>()) timer.Stop();
+        open();
+    });
+
+    TrackHoverTimer(button, timer, tickToken);
+
+    TrackRevoker(button, button.PointerEntered(winrt::auto_revoke, [timer](wf::IInspectable const&, mux::Input::PointerRoutedEventArgs const&) {
+        timer.Stop();
+        timer.Start();
+    }));
+
+    auto stopTimer = [timer](wf::IInspectable const&, mux::Input::PointerRoutedEventArgs const&) { timer.Stop(); };
+    TrackRevoker(button, button.PointerExited(winrt::auto_revoke, stopTimer));
+    TrackRevoker(button, button.PointerCanceled(winrt::auto_revoke, stopTimer));
+}
+
+std::function<void()> MakeShowFlyoutAction(muxc::AppBarButton const& button) {
+    return [weakButton = winrt::make_weak(button)]() {
+        auto button = weakButton.get();
+        if (!button || g_unloading) return;
+        if (auto flyout = button.Flyout(); flyout && !flyout.IsOpen()) flyout.ShowAt(button);
+    };
+}
+
+muxc::AppBarButton CreateMenuButton(ActionItem const& item, int index, bool openOnHover, int hoverDelayMs) {
+    muxc::AppBarButton button = CreateBareButton(index, item.name, item.labelText, MakeCommandButtonIcon(item), item.showLabel);
+    auto weakButton = winrt::make_weak(button);
+
+    muxc::MenuFlyout menu;
+    menu.Placement(muxc::Primitives::FlyoutPlacementMode::BottomEdgeAlignedLeft);
+
+    auto ensureMenuEntries = [subItems = item.subItems, weakButton](muxc::MenuFlyout const& menu) {
+        if (!menu || menu.Items().Size() > 0) return;
+        try {
+            AppendMenuEntries(subItems, menu.Items(), weakButton);
+        } catch (...) {
+        }
+    };
+
+    TrackRevoker(menu, menu.Opening(winrt::auto_revoke, [ensureMenuEntries](wf::IInspectable const& sender, wf::IInspectable const&) {
+        ensureMenuEntries(sender.try_as<muxc::MenuFlyout>());
+    }));
+
+    TrackRevoker(button, button.PointerEntered(winrt::auto_revoke, [ensureMenuEntries, weakButton](wf::IInspectable const&, mux::Input::PointerRoutedEventArgs const&) {
+        if (auto button = weakButton.get()) ensureMenuEntries(button.Flyout().try_as<muxc::MenuFlyout>());
+    }));
+
+    button.Flyout(menu);
+    if (openOnHover) SetUpOpenOnHover(button, hoverDelayMs, MakeShowFlyoutAction(button));
+    return button;
+}
+
+void OpenContextMenuForElement(mux::FrameworkElement const& element) {
+    if (g_unloading || !element) return;
+    HWND hExplorerWnd = GetExplorerWindowForElement(element);
+    if (!hExplorerWnd) return;
+    POINT point{};
+    GetCursorPos(&point);
+    ShowShellContextMenu(hExplorerWnd, point);
+}
+
+muxc::AppBarButton CreateContextMenuButton(bool openOnHover, int hoverDelayMs) {
+    ContextMenuItemSettings settings;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        settings = g_settings.contextMenuItem;
+    }
+
+    muxc::AppBarButton button;
+    button.Name(kContextMenuButtonName);
+    button.Label(settings.buttonLabel.c_str());
+    button.LabelPosition(settings.showLabel ? muxc::CommandBarLabelPosition::Default : muxc::CommandBarLabelPosition::Collapsed);
+    button.Icon(CreateIconElement(settings.buttonIcon, std::wstring(), L"\uE8FD"));
+
+    if (!settings.showLabel && !settings.buttonLabel.empty()) {
+        muxc::ToolTipService::SetToolTip(button, winrt::box_value(winrt::hstring{settings.buttonLabel}));
+    }
+
+    TrackRevoker(button, button.Click(winrt::auto_revoke, [](wf::IInspectable const& sender, mux::RoutedEventArgs const&) {
+        OpenContextMenuForElement(sender.try_as<mux::FrameworkElement>());
+    }));
+
+    if (openOnHover) {
+        auto open = [weakButton = winrt::make_weak(button)]() {
+            if (auto button = weakButton.get()) OpenContextMenuForElement(button);
+        };
+        SetUpOpenOnHover(button, hoverDelayMs, open);
+    }
+
+    return button;
+}
+
+void PopulateNewPlusMenu(muxc::MenuFlyout const& menu, winrt::weak_ref<muxc::AppBarButton> const& weakButton) try {
+    auto items = menu.Items();
+    items.Clear();
+
+    EffectiveConfig config = GetEffectiveConfig();
+    std::vector<TemplateEntry> templates = EnumerateTemplates(config);
+
+    if (templates.empty()) {
+        muxc::MenuFlyoutItem placeholder;
+        placeholder.Text(DirectoryExists(config.templateFolder) ? L"No templates" : L"Templates folder not found");
+        placeholder.IsEnabled(false);
+        items.Append(placeholder);
+    }
+
+    bool replaceVariables = config.replaceVariables;
+    for (auto const& entry : templates) {
+        muxc::MenuFlyoutItem menuItem;
+        menuItem.Text(entry.displayName.c_str());
+        if (config.showIcons) {
+            if (auto source = LoadShellItemIcon(entry.path)) {
+                muxc::ImageIcon imageIcon;
+                imageIcon.Source(source);
+                menuItem.Icon(imageIcon);
+            }
+        }
+        if (entry.displayName != entry.fileName) {
+            muxc::ToolTipService::SetToolTip(menuItem, winrt::box_value(winrt::hstring{entry.fileName}));
+        }
+
+        TrackRevoker(menuItem, menuItem.Click(winrt::auto_revoke, [entry, replaceVariables, weakButton](wf::IInspectable const&, mux::RoutedEventArgs const&) {
+            if (g_unloading) return;
+            auto button = weakButton.get();
+            if (!button) return;
+            HWND hWnd = GetExplorerWindowForElement(button);
+            RunShellWorkOnWorkerThread([hWnd, entry, replaceVariables]() {
+                CreateFromTemplateForWindow(hWnd, entry, replaceVariables);
+            });
+        }));
+
+        items.Append(menuItem);
+    }
+
+    if (config.showTemplatesFolderItem) {
+        if (!templates.empty()) items.Append(muxc::MenuFlyoutSeparator());
+        muxc::MenuFlyoutItem openFolderItem;
+        openFolderItem.Text(L"Open templates folder");
+        openFolderItem.Icon(CreateGlyphIcon(L""));
+
+        TrackRevoker(openFolderItem, openFolderItem.Click(winrt::auto_revoke, [folder = config.templateFolder](wf::IInspectable const&, mux::RoutedEventArgs const&) {
+            if (g_unloading) return;
+            RunShellWorkOnWorkerThread([folder]() {
+                if (!DirectoryExists(folder)) SHCreateDirectoryExW(nullptr, folder.c_str(), nullptr);
+                ShellExecuteW(nullptr, L"open", folder.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            });
+        }));
+
+        items.Append(openFolderItem);
+    }
+} catch (...) {
+}
+
+void AddNewPlusChevron(muxc::AppBarButton const& button) try {
+    auto label = FindDescendantByName(button, L"TextLabel").try_as<muxc::TextBlock>();
+    if (!label) return;
+
+    std::wstring currentText = label.Text().c_str();
+    if (!currentText.empty() && currentText.back() == L'\uE70D') return;
+
+    auto inlines = label.Inlines();
+    inlines.Clear();
+
+    muxd::Run text;
+    std::wstring labelText = button.Label().c_str();
+    labelText += L"  ";
+    text.Text(labelText);
+    inlines.Append(text);
+
+    muxd::Run chevron;
+    chevron.Text(L"\uE70D");
+    chevron.FontFamily(muxm::FontFamily(L"Segoe Fluent Icons"));
+    chevron.FontSize(8);
+    inlines.Append(chevron);
+} catch (...) {
+}
+
+muxc::AppBarButton CreateNewPlusButton(std::wstring const& originalIconUri, bool openOnHover, int hoverDelayMs) {
+    NewPlusSettings settings;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        settings = g_settings.newPlus;
+    }
+
+    bool showLabel = settings.showLabel && !settings.buttonLabel.empty();
+    muxc::AppBarButton button;
+    button.Name(kNewPlusButtonName);
+    button.Label(settings.buttonLabel.c_str());
+    button.LabelPosition(showLabel ? muxc::CommandBarLabelPosition::Default : muxc::CommandBarLabelPosition::Collapsed);
+    button.Icon(MakeNewPlusButtonIcon(settings.buttonIcon, originalIconUri));
+
+    if (showLabel) {
+        TrackRevoker(button, button.Loaded(winrt::auto_revoke, [](wf::IInspectable const& sender, mux::RoutedEventArgs const&) {
+            if (auto button = sender.try_as<muxc::AppBarButton>()) AddNewPlusChevron(button);
+        }));
+    }
+
+    if (!showLabel && !settings.buttonLabel.empty()) {
+        muxc::ToolTipService::SetToolTip(button, winrt::box_value(winrt::hstring{settings.buttonLabel}));
+    }
+
+    auto weakButton = winrt::make_weak(button);
+    muxc::MenuFlyout menu;
+    menu.Placement(muxc::Primitives::FlyoutPlacementMode::BottomEdgeAlignedLeft);
+
+    TrackRevoker(menu, menu.Opening(winrt::auto_revoke, [weakButton](wf::IInspectable const& sender, wf::IInspectable const&) {
+        if (g_unloading) return;
+        if (auto menu = sender.try_as<muxc::MenuFlyout>()) PopulateNewPlusMenu(menu, weakButton);
+    }));
+
+    button.Flyout(menu);
+    if (openOnHover) SetUpOpenOnHover(button, hoverDelayMs, MakeShowFlyoutAction(button));
+    return button;
+}
+
+void EnsureActionButtons(muxc::CommandBar const& commandBar) {
+    if (g_unloading) return;
+    if (HasElement(commandBar, [](muxc::ICommandBarElement const& command) {
+        auto element = command.try_as<mux::FrameworkElement>();
+        return element && std::wstring_view(element.Name()).starts_with(kButtonNamePrefix);
+    })) return;
+
+    bool openMenuOnHover;
+    int menuHoverDelay;
+    std::vector<ActionItem> items;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        openMenuOnHover = g_settings.openMenuOnHover;
+        menuHoverDelay = g_settings.menuHoverDelay;
+        items = g_settings.items;
+    }
+
+    if (items.empty()) return;
+
+    auto commands = commandBar.PrimaryCommands();
+    uint32_t insertIndex = 0;
+
+    for (size_t i = 0; i < items.size(); i++) {
+        auto const& item = items[i];
+        if (item.isMenu && !item.subItems.empty()) {
+            commands.InsertAt(insertIndex++, CreateMenuButton(item, (int)i, openMenuOnHover, menuHoverDelay));
+        } else {
+            commands.InsertAt(insertIndex++, CreateActionButton(item, (int)i));
+        }
+
+        if (item.separatorAfter) {
+            muxc::AppBarSeparator separator;
+            std::wstring name = kButtonNamePrefix;
+            name += L"_Sep_";
+            name += std::to_wstring(i);
+            separator.Name(name.c_str());
+            commands.InsertAt(insertIndex++, separator);
+        }
+    }
+}
+
+void EnsureContextMenuButton(muxc::CommandBar const& commandBar) {
+    bool enabled, openMenuOnHover;
+    int menuHoverDelay;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        enabled = g_settings.contextMenuItem.enabled;
+        openMenuOnHover = g_settings.openMenuOnHover;
+        menuHoverDelay = g_settings.menuHoverDelay;
+    }
+
+    if (!enabled || HasElement(commandBar, [](muxc::ICommandBarElement const& command) {
+        auto element = command.try_as<mux::FrameworkElement>();
+        return element && element.Name() == kContextMenuButtonName;
+    })) return;
+
+    commandBar.PrimaryCommands().Append(CreateContextMenuButton(openMenuOnHover, menuHoverDelay));
+}
+
+void EnsureNewPlusButton(muxc::CommandBar const& commandBar) {
+    if (g_unloading) return;
+    bool openMenuOnHover, enabled;
+    int menuHoverDelay;
+    {
+        std::lock_guard<std::mutex> lock(g_settings.mutex);
+        enabled = g_settings.newPlus.enabled;
+        openMenuOnHover = g_settings.openMenuOnHover;
+        menuHoverDelay = g_settings.menuHoverDelay;
+    }
+
+    if (!enabled || HasElement(commandBar, IsOurNewPlusButton)) return;
+
+    auto commands = commandBar.PrimaryCommands();
+    uint32_t count = commands.Size();
+    uint32_t newButtonIndex = count;
+    std::wstring originalIconUri;
+
+    for (uint32_t i = 0; i < count; i++) {
+        auto command = commands.GetAt(i);
+        if (IsOurElement(command)) continue;
+        if (auto button = command.try_as<muxc::AppBarButton>(); button && IdentifyDefaultButton(button) == kNewButtonIndex) {
+            newButtonIndex = i;
+            originalIconUri = GetButtonIconUri(button);
+            break;
+        }
+    }
+
+    if (newButtonIndex == count) return;
+    commands.InsertAt(newButtonIndex, CreateNewPlusButton(originalIconUri, openMenuOnHover, menuHoverDelay));
+}
+
+void UpdateCommandBar(muxc::CommandBar const& commandBar) {
+    if (g_unloading) return;
+
+    if (commandBar.Name() == L"FileExplorerCommandBar") {
+        EnsureNewPlusButton(commandBar);
+        EnsureContextMenuButton(commandBar);
+    } else if (commandBar.Name() == L"FileExplorerSecondaryCommandBar") {
+        // Enforce right-side alignment and standard label positioning
+        commandBar.DefaultLabelPosition(muxc::CommandBarDefaultLabelPosition::Right);
+        EnsureActionButtons(commandBar);
+    }
+
+    ApplyDefaultButtonVisibility(commandBar);
+}
+
+void RemoveOurButtons(muxc::CommandBar const& commandBar) {
+    auto commands = commandBar.PrimaryCommands();
+    for (uint32_t i = commands.Size(); i > 0; i--) {
+        auto command = commands.GetAt(i - 1);
+        if (!IsOurElement(command)) continue;
+
+        if (auto button = command.try_as<muxc::AppBarButton>()) {
+            if (auto flyout = button.Flyout()) {
+                try {
+                    flyout.Hide();
+                } catch (...) {
+                }
+            }
+        }
+        commands.RemoveAt(i - 1);
+    }
+}
+
+void OnCommandBarAdded(muxc::CommandBar const& commandBar) {
+    for (auto it = g_entries.begin(); it != g_entries.end();) {
+        if (!it->commandBar.get()) it = g_entries.erase(it);
+        else ++it;
+    }
+
+    for (auto const& entry : g_entries) {
+        if (entry.commandBar.get() == commandBar) return;
+    }
+
+    CommandBarEntry entry;
+    entry.commandBar = winrt::make_weak(commandBar);
+
+    entry.loadedToken = commandBar.Loaded([](wf::IInspectable const& sender, mux::RoutedEventArgs const&) {
+        if (auto commandBar = sender.try_as<muxc::CommandBar>()) UpdateCommandBar(commandBar);
+    });
+
+    entry.vectorChangedToken = commandBar.PrimaryCommands().VectorChanged(
+        [weakCommandBar = winrt::make_weak(commandBar)](wfc::IObservableVector<muxc::ICommandBarElement> const&,
+                                                        wfc::IVectorChangedEventArgs const&) {
+            if (g_unloading) return;
+            QueueCommandBarUpdate(weakCommandBar, true);
+        });
+
+    g_entries.push_back(std::move(entry));
+    UpdateCommandBar(commandBar);
+}
+
+void RemoveButtonsForCurrentThread() {
+    UnwatchVisibilityForCurrentThread();
+    StopHoverTimersForCurrentThread();
+    RevokeHandlersForCurrentThread();
+
+    std::vector<CommandBarEntry> taken;
+    taken.swap(g_entries);
+
+    for (auto& entry : taken) {
+        auto commandBar = entry.commandBar.get();
+        if (!commandBar) continue;
+        try {
+            commandBar.Loaded(entry.loadedToken);
+            commandBar.PrimaryCommands().VectorChanged(entry.vectorChangedToken);
+            RemoveOurButtons(commandBar);
+            ApplyDefaultButtonVisibility(commandBar, true);
+        } catch (...) {
+        }
+    }
+
+    ForgetManagedElementsForCurrentThread();
+    g_pendingUpdates.clear();
+    g_threadScanned = false;
+    DestroyContextMenuOwnerWindowForCurrentThread();
+}
+
+void RefreshButtonsForCurrentThread() {
+    StopHoverTimersForCurrentThread();
+    RevokeHandlersForCurrentThread();
+
+    std::vector<winrt::weak_ref<muxc::CommandBar>> commandBars;
+    for (auto const& entry : g_entries) commandBars.push_back(entry.commandBar);
+
+    for (auto const& weakCommandBar : commandBars) {
+        auto commandBar = weakCommandBar.get();
+        if (!commandBar) continue;
+        try {
+            RemoveOurButtons(commandBar);
+            UpdateCommandBar(commandBar);
+        } catch (...) {
+        }
+    }
+}
+
+bool IsTargetCommandBarName(std::wstring_view name) {
+    return name == L"FileExplorerCommandBar" || name == L"FileExplorerSecondaryCommandBar";
+}
+
+bool FoundAllCommandBars(std::vector<muxc::CommandBar> const& commandBars) {
+    bool primary = false, secondary = false;
+    for (auto const& commandBar : commandBars) {
+        if (commandBar.Name() == L"FileExplorerCommandBar") primary = true;
+        else if (commandBar.Name() == L"FileExplorerSecondaryCommandBar") secondary = true;
+    }
+    return primary && secondary;
+}
+
+void CollectCommandBars(mux::DependencyObject const& root, int depth, std::vector<muxc::CommandBar>* commandBars) {
+    if (depth > 64) return;
+    int count = muxm::VisualTreeHelper::GetChildrenCount(root);
+    for (int i = 0; i < count; i++) {
+        if (FoundAllCommandBars(*commandBars)) return;
+        auto child = muxm::VisualTreeHelper::GetChild(root, i);
+        if (auto commandBar = child.try_as<muxc::CommandBar>(); commandBar && IsTargetCommandBarName(commandBar.Name())) {
+            commandBars->push_back(std::move(commandBar));
+            continue;
+        }
+        CollectCommandBars(child, depth + 1, commandBars);
+    }
+}
+
+void ScanXamlRootForCommandBars(mux::UIElement const& element) try {
+    if (g_unloading || !element) return;
+    auto xamlRoot = element.XamlRoot();
+    if (!xamlRoot) return;
+    auto content = xamlRoot.Content();
+    if (!content) return;
+
+    std::vector<muxc::CommandBar> commandBars;
+    CollectCommandBars(content, 0, &commandBars);
+    for (auto const& commandBar : commandBars) OnCommandBarAdded(commandBar);
+    if (!commandBars.empty()) g_threadScanned = true;
+} catch (...) {
+}
+
+void ScheduleXamlRootScan(mux::UIElement const& element) try {
+    if (g_unloading || !element) return;
+    auto dispatcherQueue = winrt::Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
+    if (!dispatcherQueue) {
+        ScanXamlRootForCommandBars(element);
+        return;
+    }
+    dispatcherQueue.TryEnqueue([weakElement = winrt::make_weak(element)]() {
+        if (auto element = weakElement.get()) ScanXamlRootForCommandBars(element);
+    });
+} catch (...) {
+}
+
+muxc::CommandBar GetKnownCommandBarForCurrentThread() {
+    for (auto const& entry : g_entries) {
+        if (auto commandBar = entry.commandBar.get()) return commandBar;
+    }
+    return nullptr;
+}
+
+void ScanCurrentThreadForCommandBars() try {
+    if (g_unloading) return;
+    if (auto knownCommandBar = GetKnownCommandBarForCurrentThread()) {
+        ScanXamlRootForCommandBars(knownCommandBar);
+        return;
+    }
+    auto focused = mux::Input::FocusManager::GetFocusedElement();
+    auto element = focused ? focused.try_as<mux::UIElement>() : nullptr;
+    if (element) ScanXamlRootForCommandBars(element);
+} catch (...) {
+}
+
+void ScheduleCurrentThreadScan() try {
+    if (g_unloading) return;
+    auto dispatcherQueue = winrt::Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
+    if (!dispatcherQueue) {
+        ScanCurrentThreadForCommandBars();
+        return;
+    }
+    dispatcherQueue.TryEnqueue([]() { ScanCurrentThreadForCommandBars(); });
+} catch (...) {
+}
+
+using CommandBarManager_CommandBar_t = void(WINAPI*)(void* pThis, void* commandBar);
+CommandBarManager_CommandBar_t CommandBarManager_CommandBar_Original;
+
+void WINAPI CommandBarManager_CommandBar_Hook(void* pThis, void* commandBar) {
+    CommandBarManager_CommandBar_Original(pThis, commandBar);
+    if (g_unloading || !commandBar) return;
+    try {
+        auto const& element = *reinterpret_cast<muxc::CommandBar const*>(commandBar);
+        if (!element) return;
+        OnCommandBarAdded(element);
+        ScheduleXamlRootScan(element);
+    } catch (...) {
+    }
+}
+
+using CommandBarControl_OnApplyTemplate_t = void(WINAPI*)(void* pThis);
+CommandBarControl_OnApplyTemplate_t CommandBarControl_OnApplyTemplate_Original;
+CommandBarControl_OnApplyTemplate_t CommandBarControl_Wave1_OnApplyTemplate_Original;
+
+void WINAPI CommandBarControl_OnApplyTemplate_Hook(void* pThis) {
+    CommandBarControl_OnApplyTemplate_Original(pThis);
+    ScheduleCurrentThreadScan();
+}
+
+void WINAPI CommandBarControl_Wave1_OnApplyTemplate_Hook(void* pThis) {
+    CommandBarControl_Wave1_OnApplyTemplate_Original(pThis);
+    ScheduleCurrentThreadScan();
+}
+
+using CommandBarControl_GotFocusHandler_t = void(WINAPI*)(void* pThis, void* sender, void* args);
+CommandBarControl_GotFocusHandler_t CommandBarControl_GotFocusHandler_Original;
+CommandBarControl_GotFocusHandler_t CommandBarControl_Wave1_GotFocusHandler_Original;
+
+void HandleCommandBarControlGotFocus(void* sender) {
+    if (g_unloading || !sender) return;
+    if (g_threadScanned && GetKnownCommandBarForCurrentThread()) return;
+    try {
+        auto const& inspectable = *reinterpret_cast<wf::IInspectable const*>(sender);
+        if (auto element = inspectable ? inspectable.try_as<mux::UIElement>() : nullptr) {
+            ScanXamlRootForCommandBars(element);
+        }
+    } catch (...) {
+    }
+}
+
+void WINAPI CommandBarControl_GotFocusHandler_Hook(void* pThis, void* sender, void* args) {
+    CommandBarControl_GotFocusHandler_Original(pThis, sender, args);
+    HandleCommandBarControlGotFocus(sender);
+}
+
+void WINAPI CommandBarControl_Wave1_GotFocusHandler_Hook(void* pThis, void* sender, void* args) {
+    CommandBarControl_Wave1_GotFocusHandler_Original(pThis, sender, args);
+    HandleCommandBarControlGotFocus(sender);
+}
+
+std::atomic<bool> g_symbolsHooked;
+
+enum class SymbolHookResult {
+    Success,
+    ResolutionFailed,
+    NoSymbolFound,
+};
+
+SymbolHookResult HookFileExplorerExtensionsSymbols(HMODULE module) {
+    WindhawkUtils::SYMBOL_HOOK fileExplorerExtensionsDllHooks[] = {
+        {
+            {
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarManager::CommandBar(struct winrt::Microsoft::UI::Xaml::Controls::CommandBar const &))",
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarManager::CommandBar(struct winrt::Microsoft::UI::Xaml::Controls::CommandBar const & __ptr64) __ptr64)",
+            },
+            &CommandBarManager_CommandBar_Original,
+            CommandBarManager_CommandBar_Hook,
+            true,
+        },
+        {
+            {
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl::OnApplyTemplate(void))",
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl::OnApplyTemplate(void) __ptr64)",
+            },
+            &CommandBarControl_OnApplyTemplate_Original,
+            CommandBarControl_OnApplyTemplate_Hook,
+            true,
+        },
+        {
+            {
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl_Wave1::OnApplyTemplate(void))",
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl_Wave1::OnApplyTemplate(void) __ptr64)",
+            },
+            &CommandBarControl_Wave1_OnApplyTemplate_Original,
+            CommandBarControl_Wave1_OnApplyTemplate_Hook,
+            true,
+        },
+        {
+            {
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl::CommandBarControlGotFocusHandler(struct winrt::Windows::Foundation::IInspectable const &,struct winrt::Microsoft::UI::Xaml::RoutedEventArgs const &))",
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl::CommandBarControlGotFocusHandler(struct winrt::Windows::Foundation::IInspectable const & __ptr64,struct winrt::Microsoft::UI::Xaml::RoutedEventArgs const & __ptr64) __ptr64)",
+            },
+            &CommandBarControl_GotFocusHandler_Original,
+            CommandBarControl_GotFocusHandler_Hook,
+            true,
+        },
+        {
+            {
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl_Wave1::CommandBarControlGotFocusHandler(struct winrt::Windows::Foundation::IInspectable const &,struct winrt::Microsoft::UI::Xaml::RoutedEventArgs const &))",
+                LR"(public: void __cdecl winrt::FileExplorerExtensions::implementation::CommandBarControl_Wave1::CommandBarControlGotFocusHandler(struct winrt::Windows::Foundation::IInspectable const & __ptr64,struct winrt::Microsoft::UI::Xaml::RoutedEventArgs const & __ptr64) __ptr64)",
+            },
+            &CommandBarControl_Wave1_GotFocusHandler_Original,
+            CommandBarControl_Wave1_GotFocusHandler_Hook,
+            true,
+        },
+    };
+
+    if (!HookSymbols(module, fileExplorerExtensionsDllHooks, ARRAYSIZE(fileExplorerExtensionsDllHooks))) {
+        return SymbolHookResult::ResolutionFailed;
+    }
+
+    if (!CommandBarManager_CommandBar_Original &&
+        !CommandBarControl_OnApplyTemplate_Original &&
+        !CommandBarControl_Wave1_OnApplyTemplate_Original) {
+        return SymbolHookResult::NoSymbolFound;
+    }
+
+    return SymbolHookResult::Success;
+}
+
+HMODULE GetFileExplorerExtensionsModuleHandle() {
+    return GetModuleHandle(L"FileExplorerExtensions.dll");
+}
+
+bool HookFileExplorerExtensionsIfLoaded(bool applyHooks) {
+    if (g_symbolsHooked) return true;
+    HMODULE module = GetFileExplorerExtensionsModuleHandle();
+    if (!module) return true;
+    if (g_symbolsHooked.exchange(true)) return true;
+
+    switch (HookFileExplorerExtensionsSymbols(module)) {
+        case SymbolHookResult::Success:
+            break;
+        case SymbolHookResult::ResolutionFailed:
+            g_symbolsHooked = false;
+            return false;
+        case SymbolHookResult::NoSymbolFound:
+            return false;
+    }
+
+    if (applyHooks) Wh_ApplyHookOperations();
+    return true;
+}
+
+using LoadLibraryExW_t = decltype(&LoadLibraryExW);
+LoadLibraryExW_t LoadLibraryExW_Original;
+HMODULE WINAPI LoadLibraryExW_Hook(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags) {
+    HMODULE module = LoadLibraryExW_Original(lpLibFileName, hFile, dwFlags);
+    if (!module || g_unloading || !lpLibFileName) return module;
+
+    PCWSTR fileName = lpLibFileName;
+    for (PCWSTR p = lpLibFileName; *p; p++) {
+        if (*p == L'\\' || *p == L'/') fileName = p + 1;
+    }
+
+    if (_wcsicmp(fileName, L"FileExplorerExtensions.dll") == 0 ||
+        _wcsicmp(fileName, L"FileExplorerExtensions") == 0) {
+        HookFileExplorerExtensionsIfLoaded(true);
+    }
+    return module;
+}
+
+using RunFromWindowThreadProc_t = void(WINAPI*)(PVOID parameter);
+
+bool RunFromWindowThread(HWND hWnd, RunFromWindowThreadProc_t proc, PVOID procParam) {
+    static const UINT runFromWindowThreadRegisteredMsg = RegisterWindowMessage(L"Windhawk_RunFromWindowThread_" WH_MOD_ID);
+
+    struct RUN_FROM_WINDOW_THREAD_PARAM {
+        RunFromWindowThreadProc_t proc;
+        PVOID procParam;
+    };
+
+    DWORD dwThreadId = GetWindowThreadProcessId(hWnd, nullptr);
+    if (dwThreadId == 0) return false;
+    if (dwThreadId == GetCurrentThreadId()) {
+        proc(procParam);
+        return true;
+    }
+
+    HHOOK hook = SetWindowsHookEx(
+        WH_CALLWNDPROC,
+        [](int nCode, WPARAM wParam, LPARAM lParam) -> LRESULT {
+            if (nCode == HC_ACTION) {
+                const CWPSTRUCT* cwp = (const CWPSTRUCT*)lParam;
+                if (cwp->message == runFromWindowThreadRegisteredMsg) {
+                    RUN_FROM_WINDOW_THREAD_PARAM* param = (RUN_FROM_WINDOW_THREAD_PARAM*)cwp->lParam;
+                    param->proc(param->procParam);
+                }
+            }
+            return CallNextHookEx(nullptr, nCode, wParam, lParam);
+        },
+        nullptr, dwThreadId);
+
+    if (!hook) return false;
+
+    RUN_FROM_WINDOW_THREAD_PARAM param;
+    param.proc = proc;
+    param.procParam = procParam;
+    SendMessage(hWnd, runFromWindowThreadRegisteredMsg, 0, (LPARAM)&param);
+    UnhookWindowsHookEx(hook);
+    return true;
+}
+
+std::vector<HWND> GetFileExplorerWnds() {
+    std::vector<HWND> hWnds;
+    EnumWindows([](HWND hWnd, LPARAM lParam) -> BOOL {
+        auto& list = *(std::vector<HWND>*)lParam;
+        DWORD dwProcessId = 0;
+        if (!GetWindowThreadProcessId(hWnd, &dwProcessId) || dwProcessId != GetCurrentProcessId()) return TRUE;
+        WCHAR className[64];
+        if (GetClassName(hWnd, className, ARRAYSIZE(className)) && _wcsicmp(className, L"CabinetWClass") == 0) {
+            list.push_back(hWnd);
+        }
+        return TRUE;
+    }, (LPARAM)&hWnds);
+    return hWnds;
+}
+
+constexpr int kMaxMenuDepth = 2;
+
+ActionItem LoadActionItem(PCWSTR prefix, int depth, bool* isEmpty) {
+    auto name = WindhawkUtils::StringSetting::make(L"%s.name", prefix);
+    auto command = WindhawkUtils::StringSetting::make(L"%s.command", prefix);
+    auto parameters = WindhawkUtils::StringSetting::make(L"%s.parameters", prefix);
+    auto iconGlyph = WindhawkUtils::StringSetting::make(L"%s.iconGlyph", prefix);
+
+    ActionItem item;
+    item.name = name.get();
+    item.command = command.get();
+    item.parameters = parameters.get();
+    item.icon = iconGlyph.get();
+    item.hideIcon = Wh_GetIntSetting(L"%s.hideIcon", prefix) != 0;
+    item.showLabel = Wh_GetIntSetting(L"%s.showLabel", prefix) != 0;
+    item.labelText = Wh_GetStringSetting(L"%s.labelText", prefix);
+    item.separatorAfter = Wh_GetIntSetting(L"%s.separatorAfter", prefix) != 0;
+
+    if (depth < kMaxMenuDepth) {
+        auto type = WindhawkUtils::StringSetting::make(L"%s.type", prefix);
+        item.isMenu = wcscmp(type.get(), L"menu") == 0;
+        for (int i = 0; i < 100; i++) {
+            WCHAR subPrefix[256];
+            swprintf(subPrefix, ARRAYSIZE(subPrefix), L"%s.subItems[%d]", prefix, i);
+            bool subEmpty = false;
+            ActionItem subItem = LoadActionItem(subPrefix, depth + 1, &subEmpty);
+            if (subEmpty) break;
+            item.subItems.push_back(std::move(subItem));
+        }
+    }
+
+    *isEmpty = item.name.empty() && item.command.empty() && item.subItems.empty();
+    return item;
+}
+
+void LoadSettings() {
+    {
+        std::lock_guard<std::mutex> lock(g_iconCacheMutex);
+        g_iconCache.clear();
+    }
+
+    std::lock_guard<std::mutex> lock(g_settings.mutex);
+
+    g_settings.openMenuOnHover = Wh_GetIntSetting(L"openMenuOnHover") != 0;
+    int menuHoverDelay = Wh_GetIntSetting(L"menuHoverDelay");
+    g_settings.menuHoverDelay = menuHoverDelay >= 0 ? menuHoverDelay : 0;
+
+    for (int i = 0; i < kDefaultButtonCount; i++) {
+        g_settings.hideDefaultButtons[i] = Wh_GetIntSetting(L"hideDefaultButtons.%s", kDefaultButtons[i].settingKey) != 0;
+    }
+
+    g_settings.hideMoreButton = Wh_GetIntSetting(L"hideDefaultButtons.moreOptions") != 0;
+    g_settings.hideDetailsButton = Wh_GetIntSetting(L"hideDefaultButtons.details") != 0;
+
+    memset(g_settings.hideSeparatorAfterButton, 0, sizeof(g_settings.hideSeparatorAfterButton));
+    g_settings.hideSeparatorAfterButton[kNewButtonIndex] = Wh_GetIntSetting(L"hideDefaultButtons.separatorAfterNew") != 0;
+    g_settings.hideSeparatorAfterButton[kDeleteButtonIndex] = Wh_GetIntSetting(L"hideDefaultButtons.separatorAfterDelete") != 0;
+    g_settings.hideSeparatorAfterButton[kViewButtonIndex] = Wh_GetIntSetting(L"hideDefaultButtons.separatorAfterView") != 0;
+
+    int itemSpacing = Wh_GetIntSetting(L"itemSpacing");
+    g_settings.itemSpacing = itemSpacing < 0 ? -1 : itemSpacing;
+
+    g_settings.newPlus = NewPlusSettings{};
+    g_settings.newPlus.enabled = Wh_GetIntSetting(L"newPlus.enabled") != 0;
+    g_settings.newPlus.showLabel = Wh_GetIntSetting(L"newPlus.showLabel") != 0;
+    g_settings.newPlus.buttonLabel = WindhawkUtils::StringSetting::make(L"newPlus.buttonLabel").get();
+    g_settings.newPlus.buttonIcon = WindhawkUtils::StringSetting::make(L"newPlus.buttonIcon").get();
+    g_settings.newPlus.templateFolder = TrimQuotesAndSpaces(WindhawkUtils::StringSetting::make(L"newPlus.templateFolder").get());
+    g_settings.newPlus.showIcons = Wh_GetIntSetting(L"newPlus.showIcons") != 0;
+    g_settings.newPlus.showTemplatesFolderItem = Wh_GetIntSetting(L"newPlus.showTemplatesFolderItem") != 0;
+    g_settings.newPlus.keepOriginalNewButton = Wh_GetIntSetting(L"newPlus.keepOriginalNewButton") != 0;
+
+    g_settings.contextMenuItem = ContextMenuItemSettings{};
+    g_settings.contextMenuItem.enabled = Wh_GetIntSetting(L"contextMenuItem.enabled") != 0;
+    g_settings.contextMenuItem.useNilesoftShell = Wh_GetIntSetting(L"contextMenuItem.useNilesoftShell") != 0;
+    g_settings.contextMenuItem.showLabel = Wh_GetIntSetting(L"contextMenuItem.showLabel") != 0;
+    g_settings.contextMenuItem.buttonLabel = WindhawkUtils::StringSetting::make(L"contextMenuItem.buttonLabel").get();
+    g_settings.contextMenuItem.buttonIcon = TrimQuotesAndSpaces(WindhawkUtils::StringSetting::make(L"contextMenuItem.buttonIcon").get());
+
+    g_settings.items.clear();
+    for (int i = 0; i < 100; i++) {
+        WCHAR prefix[64];
+        swprintf(prefix, ARRAYSIZE(prefix), L"items[%d]", i);
+        bool isEmpty = false;
+        ActionItem item = LoadActionItem(prefix, 0, &isEmpty);
+        if (isEmpty) break;
+        g_settings.items.push_back(std::move(item));
+    }
 }
 
 BOOL Wh_ModInit() {
     LoadSettings();
 
-    HMODULE hUser32 = GetModuleHandle(L"user32.dll");
-    if (!hUser32) return FALSE;
+    if (GetFileExplorerExtensionsModuleHandle()) {
+        if (!HookFileExplorerExtensionsIfLoaded(false)) return FALSE;
+    } else {
+        HMODULE kernelBaseModule = GetModuleHandle(L"kernelbase.dll");
+        auto pKernelBaseLoadLibraryExW = (decltype(&LoadLibraryExW))GetProcAddress(kernelBaseModule, "LoadLibraryExW");
+        if (!pKernelBaseLoadLibraryExW) return FALSE;
+        WindhawkUtils::SetFunctionHook(pKernelBaseLoadLibraryExW, LoadLibraryExW_Hook, &LoadLibraryExW_Original);
+    }
 
-    auto pfnTranslateAcceleratorW = (TranslateAcceleratorW_t)GetProcAddress(hUser32, "TranslateAcceleratorW");
-    if (!pfnTranslateAcceleratorW) return FALSE;
+    RegisterContextMenuOwnerClass();
+    return TRUE;
+}
 
-    return WindhawkUtils::SetFunctionHook(
-        pfnTranslateAcceleratorW,
-        TranslateAcceleratorW_Hook,
-        &TranslateAcceleratorW_Original
-    );
+void Wh_ModAfterInit() {
+    HookFileExplorerExtensionsIfLoaded(true);
+    for (HWND hWnd : GetFileExplorerWnds()) {
+        RunFromWindowThread(hWnd, [](PVOID) { ScanCurrentThreadForCommandBars(); }, nullptr);
+    }
+}
+
+void Wh_ModBeforeUninit() {
+    g_unloading = true;
 }
 
 void Wh_ModUninit() {
     g_unloading = true;
-    std::vector<HANDLE> threadsToJoin;
-    {
-        std::lock_guard<std::mutex> lock(g_threadsMutex);
-        threadsToJoin.swap(g_threads);
+    DismissOpenContextMenus();
+
+    for (HWND hWnd : GetFileExplorerWnds()) {
+        RunFromWindowThread(hWnd, [](PVOID) { RemoveButtonsForCurrentThread(); }, nullptr);
     }
 
-    // Follow explorer-command-bar unload pattern: bounded wait with diagnostic log
-    for (HANDLE h : threadsToJoin) {
-        if (WaitForSingleObject(h, 2000) == WAIT_TIMEOUT) {
-            Wh_Log(L"Waiting for background worker thread to finish...");
-            WaitForSingleObject(h, INFINITE);
+    {
+        std::lock_guard<std::mutex> lock(g_iconCacheMutex);
+        g_iconCache.clear();
+    }
+
+    {
+        std::vector<std::pair<DWORD, HWND>> leftovers;
+        {
+            std::lock_guard<std::mutex> lock(g_contextMenuOwnersMutex);
+            leftovers.assign(g_contextMenuOwners.begin(), g_contextMenuOwners.end());
         }
-        CloseHandle(h);
+
+        for (auto const& [threadId, hWnd] : leftovers) {
+            if (!IsContextMenuOwnerWindow(threadId, hWnd)) {
+                std::lock_guard<std::mutex> lock(g_contextMenuOwnersMutex);
+                g_contextMenuOwners.erase(threadId);
+                continue;
+            }
+            RunFromWindowThread(hWnd, [](PVOID) { DestroyContextMenuOwnerWindowForCurrentThread(); }, nullptr);
+        }
+    }
+
+    if (g_contextMenuOwnerClassRegistered) {
+        UnregisterClassW(ContextMenuOwnerClassName().c_str(), GetCurrentModuleHandle());
+        g_contextMenuOwnerClassRegistered = false;
+    }
+
+    WaitForLaunchThreads();
+}
+
+void Wh_ModSettingsChanged() {
+    LoadSettings();
+    for (HWND hWnd : GetFileExplorerWnds()) {
+        RunFromWindowThread(hWnd, [](PVOID) { RefreshButtonsForCurrentThread(); }, nullptr);
     }
 }
