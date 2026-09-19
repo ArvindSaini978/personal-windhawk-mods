@@ -97,7 +97,7 @@ If multiple files are selected, `notepad.exe "%sel%"` expands to:
     - command: wt.exe
       $name: Command
       $description: >-
-        The executable to run, or an internal command (internal:TogglePreview, internal:ToggleDetails).
+        The executable to run, or an internal command (internal:TogglePreview, internal:ToggleDetails, internal:FolderOptions).
     - parameters: -d "%path%"
       $name: Parameters
       $description: >-
@@ -117,22 +117,41 @@ If multiple files are selected, `notepad.exe "%sel%"` expands to:
     - separatorAfter: false
       $name: Vertical separator after
       $description: Show a vertical separator line after this button.
-  - - type: button
-    - name: Toggle Preview Pane
-    - command: internal:TogglePreview
-    - parameters: ""
-    - iconGlyph: E8A5
-    - hideIcon: false
-    - showLabel: false
-    - labelText: Preview
-    - separatorAfter: false
-  - - type: button
-    - name: Open in Notepad
-    - command: notepad.exe
-    - parameters: '"%sel%"'
-    - iconGlyph: 'shell:AppsFolder\Microsoft.WindowsNotepad_8wekyb3d8bbwe!App'
-    - showLabel: false
-    - separatorAfter: false
+    - subItems:
+      - - type: button
+          $name: Sub-item Type
+          $options:
+          - button: Single button
+          - menu: Submenu
+        - name: ""
+          $name: Name
+        - command: ""
+          $name: Command
+        - parameters: ""
+          $name: Parameters
+        - iconGlyph: ""
+          $name: Icon glyph or icon path
+        - hideIcon: false
+          $name: Hide icon
+        - separatorAfter: false
+          $name: Vertical separator after
+        - subItems:
+          - - name: ""
+              $name: Name
+            - command: ""
+              $name: Command
+            - parameters: ""
+              $name: Parameters
+            - iconGlyph: ""
+              $name: Icon glyph or icon path
+            - hideIcon: false
+              $name: Hide icon
+            - separatorAfter: false
+              $name: Vertical separator after
+          $name: Nested items
+          $description: Items inside this nested submenu.
+      $name: Menu items
+      $description: Items shown in the dropdown menu.
   $name: Toolbar items
   $description: Custom buttons and dropdown menus added to the command bar.
 - hideDefaultButtons:
@@ -211,6 +230,7 @@ If multiple files are selected, `notepad.exe "%sel%"` expands to:
   $name: Item spacing (pixels at 100% scaling)
 */
 // ==/WindhawkModSettings==
+
 
 #include <windows.h>
 #include <windhawk_utils.h>
@@ -2156,6 +2176,7 @@ muxc::AppBarButton CreateActionButton(ActionItem const& item, int index) {
     return button;
 }
 
+
 void AppendMenuEntries(std::vector<ActionItem> const& items, wfc::IVector<muxc::MenuFlyoutItemBase> const& target,
                        winrt::weak_ref<muxc::AppBarButton> const& weakButton);
 
@@ -2182,7 +2203,6 @@ muxc::MenuFlyoutItemBase CreateMenuEntry(ActionItem const& item, winrt::weak_ref
 
     return menuItem;
 }
-
 void AppendMenuEntries(std::vector<ActionItem> const& items, wfc::IVector<muxc::MenuFlyoutItemBase> const& target,
                        winrt::weak_ref<muxc::AppBarButton> const& weakButton) {
     for (auto const& item : items) {
